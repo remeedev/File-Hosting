@@ -1,0 +1,23 @@
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>File Hoster</title>
+        <link href="./public/style.css" rel="stylesheet">
+        <link href="./public/alerts.css" rel="stylesheet">
+        <script src="./public/alerts.js"></script>
+        <link href="./public/icon.ico" rel="favicon">
+        <% if (locals.alert){ %>
+                <script defer>
+                    setTimeout(()=>{
+                <% if (alertType == 1) { %>
+                    createInfoAlert("<%= alert.toString() %>")
+                <% }else if (alertType == 2){ %>
+                    createErrorAlert("<%= alert.toString() %>")
+                <% }else if (alertType == 3){ %>
+                    createWarningAlert("<%= alert.toString() %>")
+                <% }else if (alertType == 4){ %>
+                    createSuccessAlert("<%= alert.toString() %>")
+                <% } %>
+                }, 300)
+                </script>
+        <% } %>
+

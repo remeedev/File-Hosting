@@ -1,0 +1,43 @@
+.alert {
+    position: absolute;
+    width: 45%;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    border-radius: 5px;
+    animation-name: drop;
+    animation-duration: 0.3s;
+    animation-fill-mode: forwards;
+    animation-iteration-count: 1;
+    color: snow;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.alert:hover {
+    background: transparent !important;
+    color: black;
+}
+
+.exit-button {
+    cursor: pointer;
+}
+
+.exit-button::before{
+    content: 'x';
+    font-weight: bolder;
+    transition: color 0.3s ease, background-color 0.3s ease;
+}
+
+.exit-button:hover::before {
+    color: red;
+}
+
+@keyframes drop {
+    from {
+        top: -100%;
+    }
+    to {
+        top: 5px;
+    }
+}
