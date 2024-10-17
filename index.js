@@ -1,3 +1,4 @@
+// Importing necessary modules
 const express = require('express')
 const app = express()
 const port = 3000
@@ -12,12 +13,27 @@ require("dotenv").config()
 
 const saltRounds = 13
 
+// Access the database
 let db = new sqlite.Database('./users.db', (err) => {
   if (err) {
     console.error(err.message);
   }
   console.log('Connected to the my database.');
 });
+
+// Function to compare passwords asynchronously
+const comparePw= (query, params = []) => {
+    return new Promise((resolve, reject) => {
+        db.all(query, params, (err, rows) => {
+            if (err) {
+                return reject(err);
+            }
+            resolve(rows);
+        });
+    });
+};
+
+// Function to get database values asynchronously
 
 const getData = (query, params = []) => {
     return new Promise((resolve, reject) => {
@@ -30,6 +46,7 @@ const getData = (query, params = []) => {
     });
 };
 
+// Setting application values
 app.use(favicon(path.join(__dirname, 'static', 'icon.ico')))
 app.use('/public', express.static(path.join(__dirname, 'static')))
 app.set('view engine', 'ejs');
@@ -47,6 +64,7 @@ app.use(cookieSession({
     }
 }))
 
+// Main webpage, handles all connections
 app.get('/', (req, res) => {
     db.get("SELECT COUNT(*) as count FROM users", (err, row)=>{
         if (err) return err;
@@ -61,6 +79,7 @@ app.get('/', (req, res) => {
     })
 })
 
+// Signin post and get request handling
 app.get('/signin', (req, res)=>{
     res.render('signin');
 })
@@ -69,28 +88,28 @@ app.post('/signin', async (req, res)=>{
     const username = req.body.username;
     const password = req.body.password;
     const repeat = req.body.repeat;
-    if (username == "" || password == "" || repeat == "") {
+    if (username == "" || password == "" || repeat == "") { // Checking for blank values
         res.render('signin', {
             alert:"cannot leave blank entries.",
             alertType: 2
         })
         return
     }
-    if (password != repeat){
+    if (password != repeat){ // Checking for password and repeat not being the same
         res.render('signin', {
             alert: "Passwords do not match",
             alertType: 2
         })
         return
     }
-    if (username.length < 3 || username.lenth > 15){
+    if (username.length < 3 || username.length > 15){ // Checking for username length
         res.render('signin', {
             alert: "Username must be between 3 and 15 characters long",
             alertType: 2
         })
         return
     }
-    if (password.length < 8 || password.length > 16){
+    if (password.length < 8 || password.length > 16){ // checking password length
         res.render('signin', {
             alert: "Password must be between 8 and 16 characters long",
             alertType: 2
@@ -98,6 +117,7 @@ app.post('/signin', async (req, res)=>{
         return
     }
     if (password == password.toLowerCase() || /\d/.test(password) != true || /[!@@$#%&^/?><.,;:'"\|`~(*)_+=-]/.test(password) != true){
+        // Checking for password to fit security standards
         res.render('signin', {
             alert: "Passwords need an uppercase letter, a special character and a number",
             alertType: 2
@@ -105,6 +125,7 @@ app.post('/signin', async (req, res)=>{
         return
     }
     try {
+        // Checking for unique username
         const data = await getData("SELECT COUNT(*) AS count FROM users WHERE username = ?", username);
         if (data[0].count != 0){
             res.render('signin', {
@@ -117,6 +138,7 @@ app.post('/signin', async (req, res)=>{
         res.redirect('/')
         return error;
     }
+    // Adding user to databse
     bcrypt.genSalt(saltRounds, (err, salt)=>{
         if (err) return err;
         bcrypt.hash(password, salt, (err, hash)=>{
@@ -126,12 +148,14 @@ app.post('/signin', async (req, res)=>{
             })
         })
     })
+    // Redirect to login upon account creation to log in to account
     res.render('login', {
         alert: "Account succesfully created",
         alertType: 4
     });
 })
 
+// Login post and get requests
 app.get('/login', (req, res)=>{
     res.render('login');
 })
@@ -139,30 +163,32 @@ app.get('/login', (req, res)=>{
 app.post('/login', async (req, res)=>{
     const username = req.body.username;
     const password = req.body.password;
-    db.all("SELECT id, passwordHash FROM users" , (err, row)=>{
-        if (err) return err;
-        for (let i = 0; i < row.length; i++){
-            bcrypt.compare(password, row[i].passwordHash, (err, result)=>{
-                if (err) return err;
-                if (result){
-                    let sessionID = crypto.randomBytes(64).toString("hex")
-                    req.session.id = sessionID;
-                    let userID = row[i].id
-                    let failed = false
-                    db.get("INSERT INTO loginLog (userID, time, sessionID, failed) VALUES (?, CURRENT_TIMESTAMP, ?, ?)", userID, sessionID, failed, (err, row)=>{
-                        if(err)return err;
-                    })
-                    res.redirect("/");
-                    return 
-                }
-            })
-        }
-        if (row.passwordHash.length != 0){
-            db.get("INSERT INTO loginLog (userID, time, failed) VALUES (?, CURRENT_TIMESTAMP, ?)", row[0].id, true, (err, row)=>{
-                if (err) return err;
-            })
-        }
-    })
+    try {
+        const users = await getData("SELECT id, passwordHash FROM users WHERE username=", username);
+        const user = users[0]
+        bcrypt.compare(password, user.passwordHash, (err, result)=>{
+            if (err) return err;
+            if (result){
+                let sessionID = crypto.randomBytes(64).toString("hex")
+                req.session.id = sessionID;
+                let userID = row[i].id
+                let failed = false
+                db.get("INSERT INTO loginLog (userID, time, sessionID, failed) VALUES (?, CURRENT_TIMESTAMP, ?, ?)", userID, sessionID, failed, (err, row)=>{
+                    if(err)return err;
+                })
+                res.redirect("/");
+                return 
+            } else {
+                db.get("INSERT INTO loginLog (userID, time, failed) VALUES (?, CURRENT_TIMESTAMP, ?)", user.id, true, (err, row)=>{
+                    if(err) return err;
+                })
+            }
+        })
+    } catch (error){
+        res.redirect("/")
+        return error;
+    }
+    
     res.render("login", {
         alert: "wrong username or password",
         alertType: 2
@@ -170,10 +196,12 @@ app.post('/login', async (req, res)=>{
     return
 })
 
+// Page restricted to logged in users, shows files
 app.get('/files', (req, res)=>{
     
 })
 
+// Starts app
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
