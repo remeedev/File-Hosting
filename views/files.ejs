@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+    <%- include("./partials/head.ejs") %>
+    </head>
+    <body>
+    <% if (locals.username) { %>
+        <h1>Welcome, <%= username %></h1>
+    <% } %>
+    <div id ="fileView">
+    <% for (let i = 0; i < files.length; i++){ %>
+        <div class="file">
+            <p>
+                <%= files[i] %>
+            </p>
+        </div>
+    <% } %>
+    </div>
+    </body>
+</html>

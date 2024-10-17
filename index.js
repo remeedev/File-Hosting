@@ -9,6 +9,7 @@ const sqlite = require('sqlite3').verbose();
 const crypto = require("crypto")
 var cookieSession = require('cookie-session');
 var favicon = require("serve-favicon")
+const fs = require("fs")
 require("dotenv").config()
 
 const saltRounds = 13
@@ -20,6 +21,10 @@ let db = new sqlite.Database('./users.db', (err) => {
   }
   console.log('Connected to the my database.');
 });
+
+db.run("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, passwordHash TEXT NOT NULL, user_group int)")
+db.run("CREATE TABLE IF NOT EXISTS loginLog (userID int, time datetime, sessionID string, failed boolean)")
+db.run("CREATE TABLE IF NOT EXISTS fileLog (file string, action int, userID int, time datetime)")
 
 // Function to compare passwords asynchronously
 const comparePw= (password, hash) => {
@@ -66,7 +71,7 @@ app.use(cookieSession({
 
 // Main webpage, handles all connections
 app.get('/', async (req, res) => {
-    db.get("SELECT COUNT(*) as count FROM users", (err, row)=>{
+    db.get("SELECT COUNT(*) as count FROM users", async (err, row)=>{
         if (err) return err;
         if (row.count == 0){
             res.render('signin', {
@@ -75,9 +80,17 @@ app.get('/', async (req, res) => {
             });
         }else{
             if (req.session.id){
+                const usernames = await getData("SELECT users.username, users.user_group FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", req.session.id);
+                const username = usernames[0].username;
+                var files = [];
+                if (usernames[0].user_group == 0){
+                    files = fs.readdirSync("./files")
+                }
                 res.render("files", {
                     alert: "Logged in succesfully",
-                    alertType: 4
+                    alertType: 4,
+                    username: username,
+                    files: files
                 })
                 return
             }
@@ -182,7 +195,6 @@ app.post('/login', async (req, res)=>{
         // Check if account is blocked
         const user = users[0] // equivalent to first row of query
         const recentLogins = await getData('SELECT failed FROM loginLog WHERE userID = ? ORDER BY time DESC', user.id);
-        console.log(recentLogins)
         if (recentLogins.length > 2){
             if (recentLogins[0] && recentLogins[1] && recentLogins[2] ){
                 res.render("login", {
