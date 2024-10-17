@@ -22,13 +22,13 @@ let db = new sqlite.Database('./users.db', (err) => {
 });
 
 // Function to compare passwords asynchronously
-const comparePw= (query, params = []) => {
+const comparePw= (password, hash) => {
     return new Promise((resolve, reject) => {
-        db.all(query, params, (err, rows) => {
+        bcrypt.compare(password, hash, (err, result) => {
             if (err) {
                 return reject(err);
             }
-            resolve(rows);
+            resolve(result);
         });
     });
 };
@@ -65,7 +65,7 @@ app.use(cookieSession({
 }))
 
 // Main webpage, handles all connections
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
     db.get("SELECT COUNT(*) as count FROM users", (err, row)=>{
         if (err) return err;
         if (row.count == 0){
@@ -74,6 +74,13 @@ app.get('/', (req, res) => {
                 alertType: 1
             });
         }else{
+            if (req.session.id){
+                res.render("files", {
+                    alert: "Logged in succesfully",
+                    alertType: 4
+                })
+                return
+            }
             res.redirect('/login');
         }
     })
@@ -161,29 +168,36 @@ app.get('/login', (req, res)=>{
 })
 
 app.post('/login', async (req, res)=>{
-    const username = req.body.username;
-    const password = req.body.password;
+    const {username, password} = req.body;
     try {
-        const users = await getData("SELECT id, passwordHash FROM users WHERE username=", username);
-        const user = users[0]
-        bcrypt.compare(password, user.passwordHash, (err, result)=>{
-            if (err) return err;
-            if (result){
-                let sessionID = crypto.randomBytes(64).toString("hex")
-                req.session.id = sessionID;
-                let userID = row[i].id
-                let failed = false
-                db.get("INSERT INTO loginLog (userID, time, sessionID, failed) VALUES (?, CURRENT_TIMESTAMP, ?, ?)", userID, sessionID, failed, (err, row)=>{
-                    if(err)return err;
-                })
-                res.redirect("/");
-                return 
-            } else {
-                db.get("INSERT INTO loginLog (userID, time, failed) VALUES (?, CURRENT_TIMESTAMP, ?)", user.id, true, (err, row)=>{
-                    if(err) return err;
-                })
-            }
-        })
+        const users = await getData("SELECT id, passwordHash FROM users WHERE username=?", username);
+        if (users.length === 0){
+            res.render("login", {
+                alert: 'User not found',
+                alertType: 2
+            })
+            return
+        }
+        const user = users[0] // equivalent to first row of query
+        const result = await comparePw(password, user.passwordHash);
+        if (result){
+            let sessionID = crypto.randomBytes(32).toString("hex")
+            console.log(sessionID)
+            req.session.id = sessionID;
+            let userID = row[i].id
+            let failed = false
+            db.get("INSERT INTO loginLog (userID, time, sessionID, failed) VALUES (?, CURRENT_TIMESTAMP, ?, ?)", user.id, sessionID, true, (err, row)=>{
+                if(err) {
+                    return err
+                };
+            })
+            res.redirect("/");
+            return 
+        } else {
+            db.get("INSERT INTO loginLog (userID, time, failed) VALUES (?, CURRENT_TIMESTAMP, ?)", user.id, true, (err, row)=>{
+                if(err) return err;
+            })
+        }
     } catch (error){
         res.redirect("/")
         return error;
