@@ -148,9 +148,10 @@ app.post('/signin', async (req, res)=>{
     // Adding user to databse
     bcrypt.genSalt(saltRounds, (err, salt)=>{
         if (err) return err;
-        bcrypt.hash(password, salt, (err, hash)=>{
+        bcrypt.hash(password, salt, async (err, hash)=>{
             if(err) return err;
-            db.get("INSERT INTO users (username, passwordHash) VALUES (?, ?)", username, hash, (err, row)=>{
+            const count = await getData("SELECT COUNT(*) AS count FROM users");
+            await db.get("INSERT INTO users (username, passwordHash, user_group) VALUES (?, ?, ?)", username, hash, count[0].count == 0 ? 0 : 1, (err, row)=>{
                 if (err) return err;
             })
         })
@@ -178,28 +179,35 @@ app.post('/login', async (req, res)=>{
             })
             return
         }
+        // Check if account is blocked
         const user = users[0] // equivalent to first row of query
+        const recentLogins = await getData('SELECT failed FROM loginLog WHERE userID = ? ORDER BY time DESC', user.id);
+        console.log(recentLogins)
+        if (recentLogins.length > 2){
+            if (recentLogins[0] && recentLogins[1] && recentLogins[2] ){
+                res.render("login", {
+                    alert: "This account has been disabled ask an admin account to log you in",
+                    alertType: 2
+                })
+                return
+            }
+        }
         const result = await comparePw(password, user.passwordHash);
         if (result){
-            let sessionID = crypto.randomBytes(32).toString("hex")
-            console.log(sessionID)
+            let sessionID = crypto.randomBytes(64).toString("hex")
             req.session.id = sessionID;
-            let userID = row[i].id
+            let userID = user.id
             let failed = false
-            db.get("INSERT INTO loginLog (userID, time, sessionID, failed) VALUES (?, CURRENT_TIMESTAMP, ?, ?)", user.id, sessionID, true, (err, row)=>{
-                if(err) {
-                    return err
-                };
-            })
+            await getData("INSERT INTO loginLog (userID, time, sessionID, failed) VALUES (?, CURRENT_TIMESTAMP, ?, ?)", [userID, sessionID, failed]);
             res.redirect("/");
             return 
         } else {
-            db.get("INSERT INTO loginLog (userID, time, failed) VALUES (?, CURRENT_TIMESTAMP, ?)", user.id, true, (err, row)=>{
+            await db.get("INSERT INTO loginLog (userID, time, failed) VALUES (?, CURRENT_TIMESTAMP, ?)", user.id, true, (err, row)=>{
                 if(err) return err;
             })
         }
     } catch (error){
-        res.redirect("/")
+        res.status(500).send("An error occurred");
         return error;
     }
     
