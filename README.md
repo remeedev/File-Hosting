@@ -5,3 +5,5 @@ A working local file hoster, to be accessed by any device with a login to the se
 
 ## Functions:
 - working sign in system & login 
+- File viewing system
+- Changing user settings (e.g. username, password)
