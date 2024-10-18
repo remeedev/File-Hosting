@@ -1,0 +1,47 @@
+#settings {
+    width: 45%;
+    position: relative;
+    min-height: 50%;
+    max-height: 70%;
+    overflow: scroll;
+    padding: 15px;
+    border: 1px solid black;
+    border-radius: 15px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+#settings div{
+    width: 100%;
+    display: flex;
+    margin: 5px 0;
+    justify-content: space-between;
+}
+
+#settings button {
+    all: unset;
+    background-color: #007bff;
+    padding: 5px 10px;
+    cursor: pointer;
+    border: 2px solid #007bff;
+    border-radius: 100dvw;
+    transition: background-color 0.3s ease;
+}
+
+#settings button:hover {
+    background-color: transparent !important;
+    color: black !important;
+}
+
+#settings a{
+    all: unset;
+}
+
+#logout {
+    position: absolute !important;
+    bottom: 15px !important;
+    left: 15px !important;
+    background-color: red !important;
+    border: 1px solid red !important;
+    color: white !important;
+    transition: color 0.3s ease;
+}

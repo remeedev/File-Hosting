@@ -87,16 +87,55 @@ app.get('/', async (req, res) => {
                 if (admin){
                     files = fs.readdirSync("./files")
                 }
-                res.render("files", {
+                let params = {
                     username: username,
                     files: files,
                     admin: admin
-                })
+                }
+                if (req.session.alert){
+                    params.alert = "Succesfully logged in"
+                    params.alertType = 4
+                    req.session.alert = false;
+                }
+                res.render("files", params)
                 return
             }
             res.redirect('/login');
         }
     })
+})
+
+app.get('/logout', (req, res)=>{
+    req.session.id = undefined
+    req.session.alert = undefined
+    res.redirect("/")
+})
+
+// Profile Webpage
+app.get('/profile', async (req, res)=>{
+    if (req.session.id){
+        const usernames = await getData("SELECT users.username, users.user_group FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", req.session.id);
+        const username = usernames[0].username;
+        const admin = usernames[0].user_group === 0;
+        res.render('profile', {
+            username: username,
+            admin: admin
+        })
+    }else{
+        res.redirect('/')
+    }
+})
+
+// Return raw file 
+app.get('/raw/:fileName', async (req, res)=>{
+    try {
+        let content = fs.readFileSync(path.join(__dirname, "files", req.params.fileName));
+        res.write(content);
+    }catch (error){
+        console.log(error)
+        res.send('')
+        return
+    }
 })
 
 // Get requests for a file 
@@ -214,7 +253,7 @@ app.post('/login', async (req, res)=>{
         const user = users[0] // equivalent to first row of query
         const recentLogins = await getData('SELECT failed FROM loginLog WHERE userID = ? ORDER BY time DESC', user.id);
         if (recentLogins.length > 2){
-            if (recentLogins[0] && recentLogins[1] && recentLogins[2] ){
+            if (recentLogins[0] === 1 && recentLogins[1] === 1 && recentLogins[2] === 1 ){
                 res.render("login", {
                     alert: "This account has been disabled ask an admin account to log you in",
                     alertType: 2
@@ -229,6 +268,7 @@ app.post('/login', async (req, res)=>{
             let userID = user.id
             let failed = false
             await getData("INSERT INTO loginLog (userID, time, sessionID, failed) VALUES (?, CURRENT_TIMESTAMP, ?, ?)", [userID, sessionID, failed]);
+            req.session.alert = true;
             res.redirect("/");
             return 
         } else {

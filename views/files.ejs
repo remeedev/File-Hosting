@@ -70,7 +70,8 @@
                         container.appendChild(mdBlock)
                     }else if(["png", "jpg", "jpeg"].includes(extension)){
                         let img = document.createElement("img")
-                        img.src = url
+                        img.src= `./raw/${fileName}`
+                        container.appendChild(img);
                     }else{
                         plain_text.innerText = res.content;
                         container.appendChild(plain_text);

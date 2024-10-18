@@ -1,0 +1,25 @@
+
+#sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 2.7%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgb(230, 230, 230);
+}
+
+#sidebar div {
+    width: 75%;
+    margin: 15px 0px;
+}
+
+#sidebar img {
+    max-width: 100%;
+    cursor: pointer;
+}
+
+

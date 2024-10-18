@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+    <%- include("./partials/head.ejs") %>
+    <link href="./public/style/settings.css" rel="stylesheet">
+    </head>
+    <body>
+        <%- include("./partials/sidebar.ejs", {admin: locals.admin}) %>
+        <div id="settings">
+        <label>Username</label>
+        <div>
+        <h1><%= username %></h1><button>Change Username</button>
+        </div>
+        <label>Password</label>
+        <div>
+        <h1>************</h1>
+        <button>Change Password</button>
+        </div>
+        <a href="/logout"><button id="logout">Log Out</button></a>
+        </div>
+    </body>
+</html>
