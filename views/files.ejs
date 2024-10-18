@@ -2,19 +2,95 @@
 <html lang="en">
     <head>
     <%- include("./partials/head.ejs") %>
+        <link href="./public/style/files.css" rel="stylesheet">
+        <script type="module" src="https://md-block.verou.me/md-block.js"></script>
     </head>
     <body>
+        <%- include("./partials/sidebar.ejs", {admin: locals.admin}) %>
     <% if (locals.username) { %>
         <h1>Welcome, <%= username %></h1>
     <% } %>
+    <input id="searchbar" type="text" placeholder="search">
     <div id ="fileView">
     <% for (let i = 0; i < files.length; i++){ %>
-        <div class="file">
+        <div class="file" onclick="openFile('<%= files[i] %>')">
             <p>
                 <%= files[i] %>
             </p>
         </div>
     <% } %>
     </div>
+
+        <script defer>
+            function openFile(fileName){
+                // Shadow Background
+                let shadowBox = document.createElement("div")
+                shadowBox.id = "shadowBox"
+                let container = document.createElement("div");
+                container.id ="container"
+                let nameContainer = document.createElement("h2");
+                let plain_text = document.createElement("p");
+                plain_text.id = "plain"
+                // Contains the name of file and the exit button
+                let header = document.createElement("div")
+                header.id = "header";
+                let exitButton = document.createElement("p")
+                // Loading icon while the server responds with contents of file
+                let loading = document.createElement("div")
+                loading.id = "loading"
+                exitButton.id = "exit"
+                exitButton.onclick = ()=>{
+                    document.body.removeChild(shadowBox);
+                }
+                nameContainer.innerText = fileName;
+                header.appendChild(nameContainer);
+                header.appendChild(exitButton);
+                container.appendChild(header);
+                container.appendChild(loading);
+                shadowBox.appendChild(container)
+                document.body.appendChild(shadowBox)
+                // Making request to the server
+                const req = new XMLHttpRequest();
+                req.open('GET', `/file/${fileName}`, true);
+                req.send()
+                // Reading response
+                req.onload = function(){
+                    const res = JSON.parse(req.responseText);
+                    if (res.error){
+                        createErrorAlert(res.content);
+                        exitButton.onclick()
+                        return
+                    }
+                    container.removeChild(loading);
+                    let pDiv = fileName.split('.')
+                    const extension = pDiv[pDiv.length - 1]
+                    if (extension == "md"){
+                        let mdBlock = document.createElement("md-block")
+                        mdBlock.innerHTML = res.content;
+                        container.appendChild(mdBlock)
+                    }else if(["png", "jpg", "jpeg"].includes(extension)){
+                        let img = document.createElement("img")
+                        img.src = url
+                    }else{
+                        plain_text.innerText = res.content;
+                        container.appendChild(plain_text);
+                    }
+                }
+            }
+            let search = document.getElementById("searchbar");
+            function checkSearch(){
+                let files = document.getElementsByClassName("file");
+                for (let i = 0; i < files.length; i++){
+                    let fileName = files[i].innerText;
+                    if (fileName.toLowerCase().includes(search.value.toLowerCase())){
+                        files[i].style.display = "inline-flex";
+                    }else {
+                        files[i].style.display = "none";
+                    }
+                }
+            }
+            search.onkeypress=checkSearch
+            search.onchange = checkSearch
+        </script>
     </body>
 </html>

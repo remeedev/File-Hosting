@@ -83,20 +83,38 @@ app.get('/', async (req, res) => {
                 const usernames = await getData("SELECT users.username, users.user_group FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", req.session.id);
                 const username = usernames[0].username;
                 var files = [];
-                if (usernames[0].user_group == 0){
+                var admin = usernames[0].user_group === 0
+                if (admin){
                     files = fs.readdirSync("./files")
                 }
                 res.render("files", {
-                    alert: "Logged in succesfully",
-                    alertType: 4,
                     username: username,
-                    files: files
+                    files: files,
+                    admin: admin
                 })
                 return
             }
             res.redirect('/login');
         }
     })
+})
+
+// Get requests for a file 
+app.get('/file/:fileName', async (req, res)=>{
+    let returnDict = {}
+    try{
+        let content = fs.readFileSync(path.join(__dirname, 'files', req.params.fileName));
+        returnDict = {
+            content: content.toString()
+        }
+    } catch(error){
+        returnDict = {
+            content: "There was an error",
+            error: true
+        }
+    }
+    res.send(returnDict)
+    return ;
 })
 
 // Signin post and get request handling
