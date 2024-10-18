@@ -1,0 +1,76 @@
+#inputShadow {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.75);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#inputShadow #inputContainer{
+    width: 50%;
+    position: relative;
+    max-height: 75%;
+    min-height: 60%;
+    background-color: white;
+    border-radius: 15px;
+    padding: 15px;
+    border: 1px solid black;
+}
+
+#inputShadow #inputContainer p {
+    cursor: pointer;
+    color: black;
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-weight: bolder;
+}
+
+#inputShadow #inputContainer p::after {
+    content: 'x';
+    transition: color 0.3s ease;
+}
+
+#inputShadow #inputContainer p:hover::after {
+    color: red;
+}
+
+#inputShadow #inputContainer input {
+    all: unset;
+    border-bottom: 1px solid black;
+    width: 100%;
+    font-size: 1.2dvw;
+    margin: 5px 0;
+}
+
+#inputShadow #inputContainer button {
+    all: unset;
+    padding: 5px 10px;
+    position: absolute;
+    bottom: 15px;
+    border-radius: 15px;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#inputShadow #inputContainer button:hover {
+    background-color: rgba(0, 0, 0, 0) !important;
+    color: black;
+}
+
+#inputShadow #inputContainer button:first-of-type {
+    background-color: #007bff;
+    border: 1px solid #007bff;
+    left: 15px;
+}
+
+#inputShadow #inputContainer button:last-of-type {
+    background-color: red;
+    right: 15px;
+    border: 1px solid red;
+}

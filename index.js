@@ -7,6 +7,7 @@ const bodyParser = require('body-parser')
 const bcrypt = require('bcrypt')
 const sqlite = require('sqlite3').verbose();
 const crypto = require("crypto")
+const qs = require("qs")
 var cookieSession = require('cookie-session');
 var favicon = require("serve-favicon")
 const fs = require("fs")
@@ -22,9 +23,12 @@ let db = new sqlite.Database('./users.db', (err) => {
   console.log('Connected to the my database.');
 });
 
+// Populate database if not yet populated
 db.run("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, passwordHash TEXT NOT NULL, user_group int)")
 db.run("CREATE TABLE IF NOT EXISTS loginLog (userID int, time datetime, sessionID string, failed boolean)")
 db.run("CREATE TABLE IF NOT EXISTS fileLog (file string, action int, userID int, time datetime)")
+db.run("CREATE TABLE IF NOT EXISTS user_groups (id int, read int, write int)")
+db.run("CREATE TABLE IF NOT EXISTS file_privilege (groupID int, file STRING, read int, write int)")
 
 // Function to compare passwords asynchronously
 const comparePw= (password, hash) => {
@@ -52,6 +56,9 @@ const getData = (query, params = []) => {
 };
 
 // Setting application values
+app.set('query parser', function (str) {
+  return qs.parse(str, { /* custom options */ })
+})
 app.use(favicon(path.join(__dirname, 'static', 'icon.ico')))
 app.use('/public', express.static(path.join(__dirname, 'static')))
 app.set('view engine', 'ejs');
@@ -68,6 +75,21 @@ app.use(cookieSession({
         httpOnly: true
     }
 }))
+// check for invalid request before logging admin
+app.use(async (req, res, next)=>{
+    if (req.method == "POST"){
+        next()
+        return
+    }
+    if (req.path != '/'){
+        const count = await getData('SELECT COUNT(*) AS count FROM users');
+        if (count[0].count == 0){
+            res.redirect('/')
+            return
+        }
+    }
+    next()
+})
 
 // Main webpage, handles all connections
 app.get('/', async (req, res) => {
@@ -118,6 +140,110 @@ app.get('/profile', async (req, res)=>{
         const username = usernames[0].username;
         const admin = usernames[0].user_group === 0;
         res.render('profile', {
+            username: username,
+            admin: admin
+        })
+    }else{
+        res.redirect('/')
+    }
+})
+
+// Change password
+app.get('/password', async (req, res)=>{
+    if (req.session.id){
+        const passwords = await getData("SELECT users.passwordHash, users.id FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", req.session.id);
+        const newpass = req.query.newpass
+        const pw = req.query.pw
+        if (newpass.length < 8 || newpass.length > 16){
+            res.send({
+                alert: "Password must be between 8 and 16 characters",
+                alertType: 2
+            })
+            return
+        }
+        if (newpass == newpass.toLowerCase() || /\d/.test(newpass) != true || /[!@@$#%&^/?><.,;:'"\|`~(*)_+=-]/.test(newpass) != true){
+            // Checking for password to fit security standards
+            res.send({
+                alert: "Passwords need an uppercase letter, a special character and a number",
+                alertType: 2
+            })
+            return
+        }
+        const passwordHash = passwords[0].passwordHash
+        const pwRight =await comparePw(pw, passwordHash);
+        if (pwRight){
+            await bcrypt.genSalt(saltRounds, async (err, salt)=>{
+                if (err) return err;
+                await bcrypt.hash(pw, salt, async (err, hash)=>{
+                    if(err) return err;
+                    db.run("UPDATE users SET passwordHash = ? WHERE id = ?", hash, passwords[0].id);
+                })
+            })
+            res.send({
+                alert: "Succesfully Changed password",
+                alertType: 4
+            })
+            return
+        }else{
+            res.send({
+                alert: "Wrong password!",
+                alertType: 2
+            })
+        }
+    }else{
+        res.redirect("/")
+    }
+})
+
+// Change username
+app.get('/username', async (req, res)=>{
+    if (req.session.id){
+        const passwords = await getData("SELECT users.passwordHash, users.id FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", req.session.id);
+        const username = req.query.username
+        if (username.length < 3 || username.length > 15){
+            res.send({
+                alert: "Username must be between 3 and 15 characters",
+                alertType: 2
+            })
+            return
+        }
+        const pw = req.query.password
+        const passwordHash = passwords[0].passwordHash
+        const pwRight = await comparePw(pw, passwordHash);
+        if (pwRight){
+            db.run("UPDATE users SET username = ? WHERE id = ?", username, passwords[0].id);
+            res.send({
+                alert: "Succesfully Changed username",
+                alertType: 4
+            })
+            return
+        }else{
+            res.send({
+                alert: "Wrong password!",
+                alertType: 2
+            })
+        }
+    }else{
+        res.redirect("/")
+    }
+})
+
+// Open admin panel as admin
+app.get('/admin', async (req, res)=>{
+    if (req.session.id){
+        const usernames = await getData("SELECT users.username, users.user_group FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", req.session.id);
+        const username = usernames[0].username;
+        const admin = usernames[0].user_group === 0;
+        if (admin == false){
+            res.render("profile", {
+                username: username,
+                admin: admin,
+                alert: "You do not have administrator privilege",
+                alertType: 2
+            })
+            return
+        }
+        res.render("admin", {
             username: username,
             admin: admin
         })

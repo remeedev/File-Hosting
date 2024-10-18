@@ -20,11 +20,12 @@
 #settings button {
     all: unset;
     background-color: #007bff;
+    color: white;
     padding: 5px 10px;
     cursor: pointer;
     border: 2px solid #007bff;
     border-radius: 100dvw;
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #settings button:hover {
@@ -43,5 +44,4 @@
     background-color: red !important;
     border: 1px solid red !important;
     color: white !important;
-    transition: color 0.3s ease;
 }
