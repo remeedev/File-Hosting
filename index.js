@@ -268,6 +268,11 @@ app.get('/profile', async (req, res)=>{
 
 // Erase a file
 app.get("/erase/:path(*)", async (req, res)=>{
+    const allow = await processRequest(3, res, req.session.id)
+    if (allow.permission == false){
+        res.redirect("/")
+        return
+    }
     if (req.params.path == undefined || req.params.path == ""){
         res.redirect('/')
         return
