@@ -1,6 +1,7 @@
 #fileView {
     width: 90%;
-    min-height: 80%;
+    min-height: 70%;
+    max-height: 75%;
 }
 
 .file {
@@ -120,4 +121,30 @@
 
 #container #plain {
     font-family: Consolas, serif;
+}
+
+#folderView {
+    width: 80%;
+    height: 15%;
+    display: flex;
+    overflow-x: scroll;
+}
+
+.folder {
+    height: 50%;
+    aspect-ratio:3;
+    margin: 5px 15px;
+    background-color: #00ddff;
+    border-top-right-radius: 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bolder;
+    border: 3px solid rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.folder:hover {
+    background-color: #22eeff;
 }

@@ -27,8 +27,15 @@ let db = new sqlite.Database('./users.db', (err) => {
 db.run("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, passwordHash TEXT NOT NULL, user_group int)")
 db.run("CREATE TABLE IF NOT EXISTS loginLog (userID int, time datetime, sessionID string, failed boolean)")
 db.run("CREATE TABLE IF NOT EXISTS fileLog (file string, action int, userID int, time datetime)")
-db.run("CREATE TABLE IF NOT EXISTS user_groups (id int, read int, write int)")
-db.run("CREATE TABLE IF NOT EXISTS file_privilege (groupID int, file STRING, read int, write int)")
+db.run("CREATE TABLE IF NOT EXISTS user_groups (id int, read int, write int, createP int, deleteP int)")
+db.run("CREATE TABLE IF NOT EXISTS file_privilege (groupID int, file STRING, read int, write int, deleteP int)")
+// Give admin all permissions
+db.all("SELECT * FROM user_groups WHERE id = 0", (err, rows)=>{
+    if (err) return err;
+    if (rows.length == 0){
+        db.run("INSERT INTO user_groups (id, read, write, createP, deleteP) VALUES (0, 1, 1, 1, 1)")
+    }
+})
 
 // Function to compare passwords asynchronously
 const comparePw= (password, hash) => {
@@ -81,6 +88,11 @@ app.use(async (req, res, next)=>{
         next()
         return
     }
+    // redirect for all public files
+    if (req.path.includes("/public/")){
+        res.redirect("/p"+req.path.substring(req.path.indexOf("public")+1));
+        return
+    }
     if (req.path != '/'){
         const count = await getData('SELECT COUNT(*) AS count FROM users');
         if (count[0].count == 0){
@@ -90,6 +102,60 @@ app.use(async (req, res, next)=>{
     }
     next()
 })
+
+// Function to get folders
+const getDirectories = source =>
+  fs.readdirSync(source, { withFileTypes: true })
+    .filter(dirent => dirent.isDirectory())
+    .map(dirent => dirent.name)
+
+// Function to get files
+const getFiles = source =>
+  fs.readdirSync(source, { withFileTypes: true })
+    .filter(dirent => dirent.isFile())
+    .map(dirent => dirent.name)
+
+// Process user request
+async function processRequest(requestType, res, sessionID){
+    let returnValue = {
+        permission: sessionID != undefined,
+        read: false,
+        write: false,
+        create: false,
+        modify: false
+    }
+    const user_info = await getUserInfo(sessionID)
+    const user_group = user_info[0].user_group;
+    const user_limits = await getData("SELECT * FROM user_groups WHERE id = ?", user_group);
+    returnValue.permission = user_limits.length != 0;
+    if (returnValue.permission == false){
+        res.send('')
+        return returnValue
+    }
+    if (requestType == 0){
+        returnValue.permission = user_limits[0].read == 1;
+    }
+    if (requestType == 1){
+        returnValue.permission = user_limits[0].write== 1;
+    }
+    if (requestType == 2){
+        returnValue.permission = user_limits[0].createP == 1;
+    }
+    if (requestType == 3){
+        returnValue.permission = user_limits[0].deleteP == 1;
+    }
+    returnValue.read = user_limits[0].read == 1;
+    returnValue.write = user_limits[0].write == 1;
+    returnValue.create = user_limits[0].createP == 1;
+    returnValue.delete = user_limits[0].deleteP == 1;
+    return returnValue
+}
+
+// Get user information
+async function getUserInfo(sessionID){
+    const userInformation = await getData("SELECT users.* FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", sessionID);
+    return userInformation;
+}
 
 // Main webpage, handles all connections
 app.get('/', async (req, res) => {
@@ -102,16 +168,19 @@ app.get('/', async (req, res) => {
             });
         }else{
             if (req.session.id){
-                const usernames = await getData("SELECT users.username, users.user_group FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", req.session.id);
+                const usernames = await getUserInfo(req.session.id);
                 const username = usernames[0].username;
                 var files = [];
+                var folders = [];
                 var admin = usernames[0].user_group === 0
                 if (admin){
-                    files = fs.readdirSync("./files")
+                    files = await getFiles(path.join(__dirname, "files"))
+                    folders = await getDirectories(path.join(__dirname, "files"))
                 }
                 let params = {
                     username: username,
                     files: files,
+                    folders: folders,
                     admin: admin
                 }
                 if (req.session.alert){
@@ -127,6 +196,37 @@ app.get('/', async (req, res) => {
     })
 })
 
+// Open subdirectories inside of storage
+app.get('/path/:path(*)', async (req, res)=>{
+    if (req.session.id == undefined){
+        res.redirect("/")
+        return
+    }
+    const userInfo = await getUserInfo(req.session.id);
+    const show = await processRequest(0, res, req.session.id)
+    if (show == false) {
+        res.redirect("/")
+        return
+    }
+    var files = []
+    var folders = []
+    const username = userInfo[0].username;
+    const admin = userInfo[0].user_group === 0
+    if (admin){
+        files = await getFiles(path.join(__dirname, "files", req.params.path))
+        folders = await getDirectories(path.join(__dirname, "files", req.params.path))
+    }
+    let params = {
+        username: username,
+        files: files,
+        folders: folders,
+        admin: admin,
+        subfolder: true
+    }
+    res.render("files", params)
+})
+
+// log the user out
 app.get('/logout', (req, res)=>{
     req.session.id = undefined
     req.session.alert = undefined
@@ -136,7 +236,7 @@ app.get('/logout', (req, res)=>{
 // Profile Webpage
 app.get('/profile', async (req, res)=>{
     if (req.session.id){
-        const usernames = await getData("SELECT users.username, users.user_group FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", req.session.id);
+        const usernames = await getUserInfo(req.session.id)
         const username = usernames[0].username;
         const admin = usernames[0].user_group === 0;
         res.render('profile', {
@@ -151,7 +251,7 @@ app.get('/profile', async (req, res)=>{
 // Change password
 app.get('/password', async (req, res)=>{
     if (req.session.id){
-        const passwords = await getData("SELECT users.passwordHash, users.id FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", req.session.id);
+        const passwords = await getUserInfo(req.session.id)
         const newpass = req.query.newpass
         const pw = req.query.pw
         if (newpass.length < 8 || newpass.length > 16){
@@ -198,7 +298,7 @@ app.get('/password', async (req, res)=>{
 // Change username
 app.get('/username', async (req, res)=>{
     if (req.session.id){
-        const passwords = await getData("SELECT users.passwordHash, users.id FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", req.session.id);
+        const passwords = await getUserInfo(req.session.id)
         const username = req.query.username
         if (username.length < 3 || username.length > 15){
             res.send({
@@ -231,7 +331,7 @@ app.get('/username', async (req, res)=>{
 // Open admin panel as admin
 app.get('/admin', async (req, res)=>{
     if (req.session.id){
-        const usernames = await getData("SELECT users.username, users.user_group FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", req.session.id);
+        const usernames = await getUserInfo(req.session.id)
         const username = usernames[0].username;
         const admin = usernames[0].user_group === 0;
         if (admin == false){
@@ -253,7 +353,11 @@ app.get('/admin', async (req, res)=>{
 })
 
 // Return raw file 
-app.get('/raw/:fileName', async (req, res)=>{
+app.get('/raw/:fileName(*)', async (req, res)=>{
+    const give = await processRequest(0, res, req.session.id);
+    if (give.permission == false){
+        return
+    }
     try {
         let content = fs.readFileSync(path.join(__dirname, "files", req.params.fileName));
         res.write(content);
@@ -265,12 +369,16 @@ app.get('/raw/:fileName', async (req, res)=>{
 })
 
 // Get requests for a file 
-app.get('/file/:fileName', async (req, res)=>{
+app.get('/file/:fileName(*)', async (req, res)=>{
+    const give = await processRequest(0, res, req.session.id);
+    if (give.permission == false) return
     let returnDict = {}
     try{
         let content = fs.readFileSync(path.join(__dirname, 'files', req.params.fileName));
         returnDict = {
-            content: content.toString()
+            content: content.toString(),
+            erase: give.delete,
+            modify: give.write
         }
     } catch(error){
         returnDict = {

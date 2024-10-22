@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
     <%- include("./partials/head.ejs") %>
-        <link href="./public/style/files.css" rel="stylesheet">
+        <link href="../public/style/files.css" rel="stylesheet">
         <script type="module" src="https://md-block.verou.me/md-block.js"></script>
     </head>
     <body>
@@ -11,6 +11,22 @@
         <h1>Welcome, <%= username %></h1>
     <% } %>
     <input id="searchbar" type="text" placeholder="search">
+    <div id="folderView">
+            <% if (locals.subfolder){ %>
+            <div class='folder' onclick="goBack()">
+                <p>
+                    Go Back
+                </p>
+            </div>
+            <% } %>
+     <% for (let i = 0; i < folders.length; i++){ %>
+        <div class="folder" onclick="openFolder('<%= folders[i] %>')">
+            <p>
+                <%= folders[i] %>
+            </p>
+        </div>
+    <% } %>
+    </div>
     <div id ="fileView">
     <% for (let i = 0; i < files.length; i++){ %>
         <div class="file" onclick="openFile('<%= files[i] %>')">
@@ -22,7 +38,26 @@
     </div>
 
         <script defer>
+            function goBack(){
+                if (window.location.pathname == "/")return
+                if (window.location.pathname.split("/").length == 3){
+                    window.location.pathname = "/"
+                }else{
+                    let new_url = window.location.pathname.split("/")
+                    new_url.pop()
+                    window.location.pathname = new_url.join("/")
+                }
+            }
+            function openFolder(folderName){
+                if (window.location.pathname == "/"){
+                    window.location.pathname = `/path/${folderName}`
+                }else{
+                    window.location.pathname = window.location.pathname + `/${folderName}`
+                }
+            }
             function openFile(fileName){
+                fileName = window.location.pathname.split("/").slice(2).join("/") + "/" + fileName
+                console.log(fileName)
                 // Shadow Background
                 let shadowBox = document.createElement("div")
                 shadowBox.id = "shadowBox"
@@ -64,6 +99,12 @@
                     container.removeChild(loading);
                     let pDiv = fileName.split('.')
                     const extension = pDiv[pDiv.length - 1]
+                    if (res.erase){
+                        let deleteButton = document.createElement("a")
+                        deleteButton.innerText = "Erase File"
+                        deleteButton.href = "./erase?path=" + fileName
+                        container.appendChild(deleteButton)
+                    }
                     if (extension == "md"){
                         let mdBlock = document.createElement("md-block")
                         mdBlock.innerHTML = res.content;
