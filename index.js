@@ -89,8 +89,13 @@ app.use(async (req, res, next)=>{
         return
     }
     // redirect for all public files
-    if (req.path.includes("/public/")){
+    if (req.path.includes("/public/") && req.path.split("/")[1] != "public"){
         res.redirect("/p"+req.path.substring(req.path.indexOf("public")+1));
+        return
+    }
+    // redirect for erases
+    if (req.path.includes("/erase/") && req.path.split("/")[1] != "erase"){
+        res.redirect("/e"+req.path.substring(req.path.indexOf("erase")+1));
         return
     }
     if (req.path != '/'){
@@ -125,6 +130,10 @@ async function processRequest(requestType, res, sessionID){
         modify: false
     }
     const user_info = await getUserInfo(sessionID)
+    if (returnValue.permission == false){
+        res.send('')
+        return returnValue
+    }
     const user_group = user_info[0].user_group;
     const user_limits = await getData("SELECT * FROM user_groups WHERE id = ?", user_group);
     returnValue.permission = user_limits.length != 0;
@@ -198,6 +207,10 @@ app.get('/', async (req, res) => {
 
 // Open subdirectories inside of storage
 app.get('/path/:path(*)', async (req, res)=>{
+    if (req.params.path == undefined || req.params.path == ""){
+        res.redirect("/")
+        return
+    }
     if (req.session.id == undefined){
         res.redirect("/")
         return
@@ -213,8 +226,13 @@ app.get('/path/:path(*)', async (req, res)=>{
     const username = userInfo[0].username;
     const admin = userInfo[0].user_group === 0
     if (admin){
-        files = await getFiles(path.join(__dirname, "files", req.params.path))
-        folders = await getDirectories(path.join(__dirname, "files", req.params.path))
+        try{
+            files = await getFiles(path.join(__dirname, "files", req.params.path))
+            folders = await getDirectories(path.join(__dirname, "files", req.params.path))
+        }catch(error){
+            res.redirect("/")
+            return
+        }
     }
     let params = {
         username: username,
@@ -246,6 +264,22 @@ app.get('/profile', async (req, res)=>{
     }else{
         res.redirect('/')
     }
+})
+
+// Erase a file
+app.get("/erase/:path(*)", async (req, res)=>{
+    if (req.params.path == undefined || req.params.path == ""){
+        res.redirect('/')
+        return
+    }
+    let redirectPath = req.params.path.split("/")
+    redirectPath.pop()
+    if (fs.existsSync(path.join(__dirname, 'files',req.params.path))){
+        fs.unlink(path.join(__dirname, 'files',req.params.path), (err)=>{
+            if (err) return err
+        })
+    }
+    res.redirect(`/path/${redirectPath.join("/")}`)
 })
 
 // Change password

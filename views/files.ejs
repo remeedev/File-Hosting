@@ -57,6 +57,7 @@
             }
             function openFile(fileName){
                 fileName = window.location.pathname.split("/").slice(2).join("/") + "/" + fileName
+                fileName = fileName[0] == '/' ? fileName : '/' + fileName;
                 console.log(fileName)
                 // Shadow Background
                 let shadowBox = document.createElement("div")
@@ -102,7 +103,7 @@
                     if (res.erase){
                         let deleteButton = document.createElement("a")
                         deleteButton.innerText = "Erase File"
-                        deleteButton.href = "./erase?path=" + fileName
+                        deleteButton.href = "./erase" + fileName
                         container.appendChild(deleteButton)
                     }
                     if (extension == "md"){
