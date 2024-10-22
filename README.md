@@ -7,3 +7,7 @@ A working local file hoster, to be accessed by any device with a login to the se
 - working sign in system & login 
 - File viewing system
 - Changing user settings (e.g. username, password)
+- Edit files
+- Delete files
+- Going in and out of folders
+- Permissions
