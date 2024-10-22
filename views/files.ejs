@@ -102,9 +102,17 @@
                     const extension = pDiv[pDiv.length - 1]
                     if (res.erase){
                         let deleteButton = document.createElement("a")
+                        deleteButton.classList.add("randomA")
                         deleteButton.innerText = "Erase File"
                         deleteButton.href = "./erase" + fileName
                         container.appendChild(deleteButton)
+                    }
+                    if (res.modify && ["png", "jpg", "jpeg"].includes(extension) == false){
+                        let modifyButton = document.createElement("a")
+                        modifyButton.classList.add("randomA")
+                        modifyButton.innerText = "Edit File"
+                        modifyButton.href = "./modify" + fileName
+                        container.appendChild(modifyButton)
                     }
                     if (extension == "md"){
                         let mdBlock = document.createElement("md-block")

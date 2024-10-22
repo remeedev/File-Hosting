@@ -30,3 +30,12 @@ body {
     align-items: center;
     background-color: snow;
 }
+
+.randomA {
+    all: unset;
+    padding: 2px 5px;
+    text-align: center;
+    border: 1px solid black;
+    cursor: pointer;
+    margin: 0 5px;
+}

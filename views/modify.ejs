@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+    <%- include("./partials/head.ejs") %>
+    </head>
+    <body>
+        <form style="width: 80%; height: 75%;" action="/modify" method="POST">
+            <textarea name="text" placeholder="start typing..." style='height: 80%;' required>
+<%= locals.content %>
+            </textarea>
+            <input type="text" name="path" value='<%= locals.filePath %>' style="display: none">
+            <input type="submit" value="Submit changes">
+            <a href="/" class="randomA">Return</a>
+        </form>
+    </body>
+</html>

@@ -36,6 +36,13 @@ db.all("SELECT * FROM user_groups WHERE id = 0", (err, rows)=>{
         db.run("INSERT INTO user_groups (id, read, write, createP, deleteP) VALUES (0, 1, 1, 1, 1)")
     }
 })
+// Give new users only read
+db.all("SELECT * FROM user_groups WHERE id = 1", (err, rows)=>{
+    if (err) return err;
+    if (rows.length == 0){
+        db.run("INSERT INTO user_groups (id, read, write, createP, deleteP) VALUES (1, 1, 0, 0, 0)")
+    }
+})
 
 // Function to compare passwords asynchronously
 const comparePw= (password, hash) => {
@@ -96,6 +103,11 @@ app.use(async (req, res, next)=>{
     // redirect for erases
     if (req.path.includes("/erase/") && req.path.split("/")[1] != "erase"){
         res.redirect("/e"+req.path.substring(req.path.indexOf("erase")+1));
+        return
+    }
+    // redirect for modify 
+    if (req.path.includes("/modify/") && req.path.split("/")[1] != "modify"){
+        res.redirect("/m"+req.path.substring(req.path.indexOf("modify")+1));
         return
     }
     if (req.path != '/'){
@@ -160,6 +172,14 @@ async function processRequest(requestType, res, sessionID){
     return returnValue
 }
 
+// Register action in file log
+async function registerLog(action, path, sessionID){
+    const userInfo = await getUserInfo(sessionID)
+    const userID = userInfo[0].id;
+    db.run("INSERT INTO fileLog (file, action, userID, time) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", path, action, userID);
+    return
+}
+
 // Get user information
 async function getUserInfo(sessionID){
     const userInformation = await getData("SELECT users.* FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", sessionID);
@@ -182,7 +202,8 @@ app.get('/', async (req, res) => {
                 var files = [];
                 var folders = [];
                 var admin = usernames[0].user_group === 0
-                if (admin){
+                const allowRead = await processRequest(0, res, req.session.id);
+                if (allowRead.permission){
                     files = await getFiles(path.join(__dirname, "files"))
                     folders = await getDirectories(path.join(__dirname, "files"))
                 }
@@ -225,7 +246,8 @@ app.get('/path/:path(*)', async (req, res)=>{
     var folders = []
     const username = userInfo[0].username;
     const admin = userInfo[0].user_group === 0
-    if (admin){
+    const allowRead = await processRequest(0, res, req.session.id);
+    if (allowRead.permission){
         try{
             files = await getFiles(path.join(__dirname, "files", req.params.path))
             folders = await getDirectories(path.join(__dirname, "files", req.params.path))
@@ -266,6 +288,44 @@ app.get('/profile', async (req, res)=>{
     }
 })
 
+// Modify a file
+app.get("/modify/:path(*)", async (req, res)=>{
+    const allow = await processRequest(1, res, req.session.id);
+    if (allow.permission == false){
+        res.redirect("/")
+        return
+    }
+    if (req.params.path == undefined || req.params.path == ""){
+        res.redirect('/')
+        return
+    }
+    if (fs.existsSync(path.join(__dirname, "files", req.params.path))){
+        const fileContent = fs.readFileSync(path.join(__dirname, "files", req.params.path))
+        res.render("modify", {
+            content: fileContent,
+            filePath: req.params.path
+        })
+        return
+    }
+    res.redirect("/")
+})
+
+// Receive file changes
+app.post("/modify", async (req, res)=>{
+    const allow = await processRequest(1, res, req.session.id);
+    if (allow == false){
+        res.redirect("/")
+    }
+    let redirectURL = req.body.path.split("/")
+    redirectURL.pop()
+    redirectURL = redirectURL.join("/")
+    if (fs.existsSync(path.join(__dirname, 'files', req.body.path))){
+        fs.writeFileSync(path.join(__dirname, 'files', req.body.path), req.body.text);
+        registerLog(1, req.body.path, req.session.id)
+    }
+    res.redirect("/path/" + redirectURL)
+})
+
 // Erase a file
 app.get("/erase/:path(*)", async (req, res)=>{
     const allow = await processRequest(3, res, req.session.id)
@@ -283,6 +343,7 @@ app.get("/erase/:path(*)", async (req, res)=>{
         fs.unlink(path.join(__dirname, 'files',req.params.path), (err)=>{
             if (err) return err
         })
+        registerLog(3, req.params.path, req.session.id)
     }
     res.redirect(`/path/${redirectPath.join("/")}`)
 })
@@ -400,6 +461,7 @@ app.get('/raw/:fileName(*)', async (req, res)=>{
     try {
         let content = fs.readFileSync(path.join(__dirname, "files", req.params.fileName));
         res.write(content);
+        registerLog(0, req.params.fileName, req.session.id);
     }catch (error){
         console.log(error)
         res.send('')
@@ -419,6 +481,7 @@ app.get('/file/:fileName(*)', async (req, res)=>{
             erase: give.delete,
             modify: give.write
         }
+        registerLog(0, req.params.fileName, req.session.id);
     } catch(error){
         returnDict = {
             content: "There was an error",
