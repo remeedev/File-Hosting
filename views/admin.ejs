@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+    <%- include("./partials/head.ejs") %>
+    <link href="./public/style/admin.css" rel="stylesheet">
+    </head>
+    <body>
+        <%- include("./partials/sidebar.ejs", {admin: locals.admin}) %>
+
+        <div id="adminPanel">
+            <header>
+            <h1><%= locals.username %>'s admin panel</h1>
+            </header>
+            <div class='dropdown'>
+                <h2>Users</h2>
+                <div class="drop">
+                    <div class="entry">
+                        <p>remeedev</p>
+                        <p>Bla Bla</p>
+                    </div>
+                </div>
+            </div>
+            <div class='dropdown'>
+                <h2>File Log</h2>
+                <div class="drop">
+
+                </div>
+            </div>
+            <div class="dropdown">
+                <h2>Login Log</h2>
+                <div class="drop">
+
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
