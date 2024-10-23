@@ -7,6 +7,7 @@ const bodyParser = require('body-parser')
 const bcrypt = require('bcrypt')
 const sqlite = require('sqlite3').verbose();
 const crypto = require("crypto")
+const fileUpload = require("express-fileupload");
 const qs = require("qs")
 var cookieSession = require('cookie-session');
 var favicon = require("serve-favicon")
@@ -78,6 +79,8 @@ app.use('/public', express.static(path.join(__dirname, 'static')))
 app.set('view engine', 'ejs');
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
+app.use(fileUpload());
+
 app.use(cookieSession({
     name: 'session',
     secret: process.env.SESSION_SECRET,
@@ -143,14 +146,12 @@ async function processRequest(requestType, res, sessionID){
     }
     const user_info = await getUserInfo(sessionID)
     if (returnValue.permission == false){
-        res.send('')
         return returnValue
     }
     const user_group = user_info[0].user_group;
     const user_limits = await getData("SELECT * FROM user_groups WHERE id = ?", user_group);
     returnValue.permission = user_limits.length != 0;
     if (returnValue.permission == false){
-        res.send('')
         return returnValue
     }
     if (requestType == 0){
@@ -288,6 +289,34 @@ app.get('/profile', async (req, res)=>{
     }
 })
 
+// Get a file upload
+app.post("/fileUpload", async (req, res)=>{
+    const allow = await processRequest(2, res, req.session.id);
+    if (allow.permission == false){
+        res.send({
+            alert: "You are not allowed to upload files",
+            alertType: 2
+        })
+        return
+    }
+    try{
+        fs.writeFileSync(path.join(__dirname, "files", req.body.path, req.files.file.name), req.files.file.data);
+        registerLog(2,path.join(req.body.path, req.files.file.name), req.session.id)
+        res.send({
+            alert: "Succesfully uploaded file!",
+            alertType: 4
+        })
+        return
+    } catch (error){
+        res.send({
+            alert: "There was an error uploading the file",
+            alertType: 2
+        })
+        console.log(error)
+        return
+    }
+})
+
 // Modify a file
 app.get("/modify/:path(*)", async (req, res)=>{
     const allow = await processRequest(1, res, req.session.id);
@@ -297,6 +326,14 @@ app.get("/modify/:path(*)", async (req, res)=>{
     }
     if (req.params.path == undefined || req.params.path == ""){
         res.redirect('/')
+        return
+    }
+    let extension = req.params.path.split("/")
+    extension = extension[extension.length - 1]
+    extension = extension.split(".")
+    extension = extension[extension.length - 1]
+    if (extension == "png"){
+        res.redirect("/")
         return
     }
     if (fs.existsSync(path.join(__dirname, "files", req.params.path))){
@@ -461,7 +498,7 @@ app.get('/raw/:fileName(*)', async (req, res)=>{
     try {
         let content = fs.readFileSync(path.join(__dirname, "files", req.params.fileName));
         res.write(content);
-        registerLog(0, req.params.fileName, req.session.id);
+        registerLog(0, req.params.fileName.slice(1), req.session.id);
     }catch (error){
         console.log(error)
         res.send('')
@@ -481,7 +518,7 @@ app.get('/file/:fileName(*)', async (req, res)=>{
             erase: give.delete,
             modify: give.write
         }
-        registerLog(0, req.params.fileName, req.session.id);
+        registerLog(0, req.params.fileName.slice(1), req.session.id);
     } catch(error){
         returnDict = {
             content: "There was an error",

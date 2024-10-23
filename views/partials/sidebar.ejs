@@ -1,12 +1,12 @@
 <div id="sidebar">
    <div class="top">
-    <a href="/profile"> <img src="./public/imgs/profile-user.png" alt="profile"> </a>
-   <a href='/'><img src="./public/imgs/folder.png" alt="files"></a>
+    <a href="/profile"> <img src="./public/imgs/profile-user.png" alt="profile" draggable="false"> </a>
+   <a href='/'><img src="./public/imgs/folder.png" alt="files" draggable="false"></a>
    </div>
 
    <div class="bottom">
    <% if (locals.admin){ %>
-    <img src="./public/imgs/settings.png" alt="settings">
+    <img src="./public/imgs/settings.png" alt="settings" draggable="false">
     <% } %>
    </div>
 </div>

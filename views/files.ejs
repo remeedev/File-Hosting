@@ -6,6 +6,9 @@
         <script type="module" src="https://md-block.verou.me/md-block.js"></script>
     </head>
     <body>
+        <div id="hoverfile">
+            <h1>Drop files here!</h1>
+        </div>
         <%- include("./partials/sidebar.ejs", {admin: locals.admin}) %>
     <% if (locals.username) { %>
         <h1>Welcome, <%= username %></h1>
@@ -38,6 +41,52 @@
     </div>
 
         <script defer>
+            document.body.ondrop = (ev)=>{
+                ev.preventDefault()
+
+                let files = ev.dataTransfer.items;
+                for (let i = 0; i < files.length; i++){
+                    const file = files[i]
+                    if (file.kind == "file"){
+                        const fileObj = file.getAsFile();
+                        let extension = fileObj.name.split(".")
+                        if (extension.length == 1 && fileObj.size == 0){
+                            createErrorAlert(`${fileObj.name} couldn't be uploaded, folders are not allowed`);
+                            continue;
+                        }
+                        let path = window.location.pathname.split("/").slice(2).join('/')
+                        console.log(fileObj)
+                        let formData = new FormData()
+                        formData.append("path", path);
+                        formData.append("file", fileObj)
+                        var req = fetch('/fileUpload', {
+                            method: 'POST',
+                            body: formData
+                        }).then(function(response){
+                            return response.json()
+                        }).then(function(data){
+                            if (data.alertType == 2){
+                                createErrorAlert(data.alert)
+                                return
+                            }
+                            createSuccessAlert(data.alert)
+                            setTimeout(()=>{
+                                window.location.reload()
+                            }, 1000)
+                        })
+                    }
+                }
+                document.getElementById("hoverfile").style.opacity = "0"
+            }
+            document.body.ondragover = (ev)=>{
+                ev.preventDefault()
+                if (ev.dataTransfer.types.includes("Files")){
+                    document.getElementById("hoverfile").style.opacity = '1'
+                }
+            }
+            document.body.ondragleave = (ev)=>{
+                document.getElementById("hoverfile").style.opacity = "0"
+            }
             function goBack(){
                 if (window.location.pathname == "/")return
                 if (window.location.pathname.split("/").length == 3){
@@ -122,6 +171,12 @@
                         let img = document.createElement("img")
                         img.src= `./raw/${fileName}`
                         container.appendChild(img);
+                    }else if(["js", "css", "html"].includes(extension)){
+                        let content = document.createElement("script")
+                        content.style.display = "inline"
+                        content.type = "text/plain"
+                        content.innerHTML = res.content;
+                        container.appendChild(content)
                     }else{
                         plain_text.innerText = res.content;
                         container.appendChild(plain_text);
@@ -137,6 +192,15 @@
                         files[i].style.display = "inline-flex";
                     }else {
                         files[i].style.display = "none";
+                    }
+                }
+                let folders = document.getElementsByClassName("folder");
+                for (let i = 0; i < folders.length; i++){
+                    let folderName = folders[i].innerText;
+                    if (folderName.toLowerCase().includes(search.value.toLowerCase())){
+                        folders[i].style.display = "inline-flex";
+                    }else {
+                        folders[i].style.display = "none";
                     }
                 }
             }

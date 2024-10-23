@@ -31,6 +31,9 @@
                             createErrorAlert(res.alert)
                         }else{
                             createSuccessAlert(res.alert)
+                            setTimeout(()=>{
+                                window.location.reload()
+                             }, 1000)
                         }
                     }
                 })
