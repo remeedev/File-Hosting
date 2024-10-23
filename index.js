@@ -95,6 +95,9 @@ app.use(cookieSession({
 // check for invalid request before logging admin
 app.use(async (req, res, next)=>{
     if (req.method == "POST"){
+        for (const l in req.body){
+            req.body[l] = req.body[l].split('%20').join(' ')
+        }
         next()
         return
     }
@@ -337,6 +340,7 @@ app.post("/delFolder", async (req, res)=>{
     }
     try{
         fs.rmSync(folder_path, {recursive: true});
+        registerLog(3, path.join(req.body.path, req.body.folderName, "/"),req.session.id)
         res.send({
             alert: "Folder deleted",
             alertType: 4
@@ -371,6 +375,7 @@ app.post("/newFolder", async (req, res)=>{
     try{
         let folder_path = path.join(__dirname, "files", req.body.path, req.body.folderName)
         fs.mkdirSync(folder_path);
+        registerLog(2, path.join(req.body.path, req.body.folderName, '/'),req.session.id)
         res.send({
             alert: "Succesfully created!",
             alertType: 4
