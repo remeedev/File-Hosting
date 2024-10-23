@@ -11,3 +11,5 @@ A working local file hoster, to be accessed by any device with a login to the se
 - Delete files
 - Going in and out of folders
 - Permissions
+- Add and delete folders
+- Drag in files
