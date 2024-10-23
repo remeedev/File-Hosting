@@ -317,6 +317,75 @@ app.post("/fileUpload", async (req, res)=>{
     }
 })
 
+// Delete folder
+app.post("/delFolder", async (req, res)=>{
+    const allow = await processRequest(3, res, req.session.id);
+    if (allow.permission == false){
+        res.send({
+            alert: 'You are not allowed to delete folders',
+            alertType: 2
+        })
+        return
+    }
+    let folder_path = path.join(__dirname, "files", req.body.path, req.body.folderName);
+    if (!fs.existsSync(folder_path)){
+        res.send({
+            alert: "Folder does not exist",
+            alertType: 2
+        })
+        return
+    }
+    try{
+        fs.rmSync(folder_path, {recursive: true});
+        res.send({
+            alert: "Folder deleted",
+            alertType: 4
+        })
+        return
+    }catch (error){
+        res.send({
+            alert: 'There was an error',
+            alertType: 2
+        })
+        return
+    }
+})
+
+// Create new folder
+app.post("/newFolder", async (req, res)=>{
+    const allow = await processRequest(2, res, req.session.id);
+    if (allow.permission == false){
+        res.send({
+            alert: 'You are not allowed to create a folder!',
+            alertType: 2
+        })
+        return
+    }
+    if (fs.existsSync(path.join(__dirname, "files", req.body.path, req.body.folderName))){
+        res.send({
+            alert: "Folder with that name exists",
+            alertType: 2
+        })
+        return
+    }
+    try{
+        let folder_path = path.join(__dirname, "files", req.body.path, req.body.folderName)
+        fs.mkdirSync(folder_path);
+        res.send({
+            alert: "Succesfully created!",
+            alertType: 4
+        })
+        return
+    }catch(error){
+        res.send({
+            alert: "There was an error",
+            alertType: 2
+        })
+        console.log(error)
+        return
+    }
+})
+
 // Modify a file
 app.get("/modify/:path(*)", async (req, res)=>{
     const allow = await processRequest(1, res, req.session.id);

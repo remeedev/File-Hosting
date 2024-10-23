@@ -29,6 +29,19 @@
             </p>
         </div>
     <% } %>
+                <div class='folder' onclick="createFolder()">
+                    <p>
+                       +
+                    </p>
+                </div>
+
+                <% if (locals.subfolder){ %>
+                <div class='folder' style="background-color: #ff1100; color: white;" onclick="deleteFolder()">
+                    <p>
+                        Delete Folder 
+                    </p>
+                </div>
+                <% } %>
     </div>
     <div id ="fileView">
     <% for (let i = 0; i < files.length; i++){ %>
@@ -41,6 +54,53 @@
     </div>
 
         <script defer>
+function deleteFolder(){
+    askInput('Are you sure you want to delete the folder?', [], ()=>{
+        formData = new FormData();
+        let folder_path = window.location.pathname.split("/").slice(2)
+        formData.append("folderName", folder_path[folder_path.length-1])
+        folder_path.pop()
+        formData.append("path", folder_path.join('/'));
+        var req = fetch('/delFolder', {
+            method: 'POST',
+            body: formData
+        }).then (function(response){
+            return response.json()
+        }).then(function(data){
+            if (data.alertType == 2){
+                createErrorAlert(data.alert)
+                return
+            }
+            createSuccessAlert(data.alert)
+            setTimeout(()=>{
+                let x = window.location.pathname.split("/")
+                x.pop()
+                x = x.length == 2 ? '/' : x.join("/")
+                window.location.pathname = x;
+            }, 1000)
+        })
+    })
+}
+            function createFolder(){
+                askInput('Enter name', ["Folder Name"], (values)=>{
+                    formData = new FormData();
+                    formData.append("folderName", values[0])
+                    formData.append("path", window.location.pathname.split("/").slice(2).join("/"));
+                    var req = fetch('/newFolder', {
+                        method: 'POST',
+                        body: formData
+                    }).then (function(response){
+                        return response.json()
+                    }).then(function(data){
+                        if (data.alertType == 2){
+                            createErrorAlert(data.alert)
+                            return
+                        }
+                        createSuccessAlert(data.alert)
+                        setTimeout(()=>{window.location.reload()}, 1000)
+                    })
+                })
+            }
             document.body.ondrop = (ev)=>{
                 ev.preventDefault()
 
