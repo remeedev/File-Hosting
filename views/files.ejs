@@ -51,9 +51,69 @@
             </p>
         </div>
     <% } %>
+                <div class="file" onclick="uploadFile()">
+                    <p>
+                        Upload File
+                    </p>
+                </div>
+                <div class="file" onclick="createFile()">
+                    <p>
+                        Create File
+                    </p>
+        </div>
     </div>
 
         <script defer>
+        function createFile(){
+            askInput('Enter file name', ["Name"], (values)=>{
+                let fileObj = new File([""], values[0])
+                let path = window.location.pathname.split("/").slice(2).join('/')
+                let formData = new FormData()
+                formData.append("path", path);
+                formData.append("file", fileObj)
+                var req = fetch('/fileUpload', {
+                    method: 'POST',
+                    body: formData
+                }).then(function(response){
+                    return response.json()
+                }).then(function(data){
+                    if (data.alertType == 2){
+                        createErrorAlert(data.alert)
+                        return
+                    }
+                    createSuccessAlert(data.alert)
+                    setTimeout(()=>{
+                        window.location.pathname = "/modify/"+path+"/" + values[0]
+                    }, 1000)
+                })
+
+            })
+        }
+        function uploadFile(){
+            createInfoAlert("You can also drag files into the page and they will be added!")
+            askInput("Enter the file", ["file"], (values)=>{
+                let fileObj = values[0][0]
+                let path = window.location.pathname.split("/").slice(2).join('/')
+                let formData = new FormData()
+                formData.append("path", path);
+                formData.append("file", fileObj)
+                var req = fetch('/fileUpload', {
+                    method: 'POST',
+                    body: formData
+                }).then(function(response){
+                    return response.json()
+                }).then(function(data){
+                    if (data.alertType == 2){
+                        createErrorAlert(data.alert)
+                        return
+                    }
+                    createSuccessAlert(data.alert)
+                    setTimeout(()=>{
+                        window.location.reload()
+                    }, 1000)
+                })
+            })
+        }
 function deleteFolder(){
     askInput('Are you sure you want to delete the folder?', [], ()=>{
         formData = new FormData();

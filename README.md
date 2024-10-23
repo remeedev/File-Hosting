@@ -13,3 +13,4 @@ A working local file hoster, to be accessed by any device with a login to the se
 - Permissions
 - Add and delete folders
 - Drag in files
+- Upload and create file buttons amongst file views.

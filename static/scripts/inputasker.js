@@ -17,6 +17,7 @@ function askInput(queryTitle, queries = [], callback = console.log){
     for (let i = 0; i < queries.length; i++){
         let input = document.createElement("input")
         input.type = queries[i].toLowerCase().includes("password") ? "password" : "text";
+        input.type = queries[i].toLowerCase().includes("file") ? "file" : "text";
         input.placeholder = queries[i];
         container.appendChild(input);
     }
@@ -29,6 +30,10 @@ function askInput(queryTitle, queries = [], callback = console.log){
         let entries = container.getElementsByTagName("input")
         let entryValues = []
         for (let i = 0; i < entries.length; i++){
+            if (entries[i].type == "file"){
+                entryValues.push(entries[i].files)
+                continue;
+            }
             if (entries[i].value == ''){
                 createErrorAlert("Can't leave spaces blank!")
                 return
