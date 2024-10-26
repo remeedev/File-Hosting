@@ -1,6 +1,0 @@
-This is a file to test the inside of a folder
-
-This is a test of editing a file
-
-This file was edited using the /modify path
-            

@@ -192,7 +192,7 @@ async function getUserInfo(sessionID){
 
 // Main webpage, handles all connections
 app.get('/', async (req, res) => {
-    db.get("SELECT COUNT(*) as count FROM users", async (err, row)=>{
+    db.get("SELECT COUNT(*) as count FROM users WHERE user_group = 0", async (err, row)=>{
         if (err) return err;
         if (row.count == 0){
             res.render('signin', {
@@ -554,9 +554,18 @@ app.get('/admin', async (req, res)=>{
             })
             return
         }
+        // Get all of the data that is given to an admin
+        const users = await getData("SELECT id, username, user_group FROM users;");
+        const user_groups = await getData("SELECT * FROM user_groups");
+        const fileLog = await getData("SELECT * FROM fileLog ORDER BY time DESC");
+        const loginLog = await getData("SELECT * FROM loginLog ORDER BY time DESC");
         res.render("admin", {
             username: username,
-            admin: admin
+            admin: admin,
+            users: users,
+            user_groups: user_groups,
+            fileLog: fileLog,
+            loginLog: loginLog
         })
     }else{
         res.redirect('/')
@@ -680,6 +689,80 @@ app.post('/signin', async (req, res)=>{
     });
 })
 
+// Function that unblocks account of user
+app.get('/unblockAccount', async (req, res)=>{
+    if (req.session.id == undefined){
+        res.redirect("/login")
+        return
+    }
+    let userInfo = await getUserInfo(req.session.id);
+    userInfo = userInfo[0];
+    const id = req.query.userID;
+    if (id == undefined){
+        res.send({alert:"A user id must be given", alertType: 2})
+        return
+    }
+    if (userInfo.user_group == 0){
+        try{
+            await getData("INSERT INTO loginLog (userID, time, failed) VALUES (?, CURRENT_TIMESTAMP, ?)", [id, 0])
+            res.send({
+                alert: 'Succesfully unblocked account',
+                alertType: 4
+            })
+            return
+        } catch(error){
+            console.log(error)
+            res.send({
+                alert: 'There was an error unblocking Account',
+                alertType: 2
+            })
+            return
+        }
+    }else{
+        res.send({
+            alert: 'You are not allowed to unblock an account!',
+            alertType: 2
+        })
+    }
+})
+
+// Function to delete the user
+app.get('/delUser', async (req, res)=>{
+    if (req.session.id == undefined){
+        res.redirect("/login");
+        return
+    }
+    let userInfo = await getUserInfo(req.session.id);
+    userInfo = userInfo[0];
+    var id = req.query.userID;
+    if (id == undefined){
+        id = userInfo.id;
+    }else{
+        if (userInfo.user_group != 0){
+            res.send({
+                alert: "You are not allowed to delete users!",
+                alertType: 2
+            })
+            return
+        }
+    }
+    try{
+        await registerLog(3, "users:"+id, req.session.id)
+        await getData("DELETE FROM users WHERE id = ?", id);
+        res.send({
+            alert: "Succesfully deleted user",
+            alertType: 4
+        })
+        return
+    }catch(error){
+        res.send({
+            alert: "There was an error deleting the user",
+            alertType: 2
+        })
+        return
+    }
+})
+
 // Login post and get requests
 app.get('/login', (req, res)=>{
     res.render('login');
@@ -700,7 +783,7 @@ app.post('/login', async (req, res)=>{
         const user = users[0] // equivalent to first row of query
         const recentLogins = await getData('SELECT failed FROM loginLog WHERE userID = ? ORDER BY time DESC', user.id);
         if (recentLogins.length > 2){
-            if (recentLogins[0] === 1 && recentLogins[1] === 1 && recentLogins[2] === 1 ){
+            if (recentLogins[0].failed === 1 && recentLogins[1].failed === 1 && recentLogins[2].failed === 1 ){
                 res.render("login", {
                     alert: "This account has been disabled ask an admin account to log you in",
                     alertType: 2
@@ -733,11 +816,6 @@ app.post('/login', async (req, res)=>{
         alertType: 2
     })
     return
-})
-
-// Page restricted to logged in users, shows files
-app.get('/files', (req, res)=>{
-    
 })
 
 // Starts app

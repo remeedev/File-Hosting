@@ -16,10 +16,21 @@
         <h1>************</h1>
         <button onclick="changePass()">Change Password</button>
         </div>
+        <div class="bottombutt">
         <a href="/logout"><button id="logout">Log Out</button></a>
+        <button id="logout" onclick = "delAcc()">Delete Account</button>
+        </div>
         </div>
 
         <script defer>
+            function delAcc(){
+                let req = new XMLHttpRequest();
+                req.open('GET', '/delUser', true);
+                req.send()
+                req.onload = ()=>{
+                    window.location.pathname = '/login'
+                    }
+            }
              function changeUsername(){
                 askInput("Enter data", ["New username", "Password"], (data)=>{
                     let req = new XMLHttpRequest();

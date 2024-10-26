@@ -11,27 +11,201 @@
             <header>
             <h1><%= locals.username %>'s admin panel</h1>
             </header>
-            <div class='dropdown'>
-                <h2>Users</h2>
-                <div class="drop">
-                    <div class="entry">
-                        <p>remeedev</p>
-                        <p>Bla Bla</p>
-                    </div>
-                </div>
-            </div>
-            <div class='dropdown'>
-                <h2>File Log</h2>
-                <div class="drop">
-
-                </div>
-            </div>
-            <div class="dropdown">
-                <h2>Login Log</h2>
-                <div class="drop">
-
-                </div>
-            </div>
-        </div>
+            <details>
+                <summary>
+                    <h2>Users</h2>
+                </summary>
+                <table>
+                    <thead>
+                        <tr>
+                            <td>ID</td>
+                            <td>Username</td>
+                            <td>User Group</td>
+                            <td>Apply Changes</td>
+                            <td>Unblock Account</td>
+                            <td>Delete User</td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% for (let i = 0; i < users.length; i++){ %>
+                        <tr>
+                            <td>
+                                <%= users[i].id %>
+                            </td>
+                            <td>
+                                <input type="text" value="<%= users[i].username%>">
+                            </td>
+                            <td>
+                                <select value='<%= users[i].user_group %>'>
+                                    <% for (let n = 0; n < user_groups.length; n++){ %>
+                                    <option value='<%= user_groups[n].id %>' <%= users[i].user_group == user_groups[n].id  ? 'selected' : '' %>><%= user_groups[n].id == 0 ? 'admin' : user_groups[n].id == 1 ? 'default' : user_groups[i].id-2 %></option>
+                                    <% } %>
+                                </select>
+                            </td>
+                            <td>
+                                <button class="apply">Apply Changes</button>
+                            </td>
+                            <td>
+                                <button class="apply" onclick='unblockAcc(<%= users[i].id %>)'>Unblock Account</button>
+                            </td>
+                            <td>
+                                <button class='delete' onclick="delUser(<%= users[i].id %>)">Delete User</button>
+                            </td>
+                        </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </details>
+            <details>
+                <summary>
+                    <h2>General Permissions</h2>
+                </summary>
+                <table>
+                    <thead>
+                        <tr>
+                            <td>Group Id</td>
+                            <td>read</td>
+                            <td>write</td>
+                            <td>create</td>
+                            <td>delete</td>
+                            <td>Apply Changes</td>
+                            <td>Delete Group</td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% for (let i = 0; i < user_groups.length; i++){ %>
+                        <tr <%= [0, 1].includes(user_groups[i].id) ? 'class=unselectable' : '""' %>>
+                            <td>
+<%= user_groups[i].id == 0 ? 'admin' : user_groups[i].id == 1 ? 'default' : user_groups[i].id-2 %>
+                            </td>
+                            <td>
+                                <input type="checkbox" <%= user_groups[i].read ? 'checked' : ''%> >
+                            </td>
+                            <td>
+                                <input type="checkbox" <%= user_groups[i].write ? 'checked' : ''%> >
+                            </td>
+                            <td>
+                                <input type="checkbox" <%= user_groups[i].createP ? 'checked' : ''%> >
+                            </td>
+                            <td>
+                                <input type="checkbox" <%= user_groups[i].deleteP ? 'checked' : ''%> >
+                            </td>
+                            <td>
+                                <button class='apply <%= [0, 1].includes(user_groups[i].id) ? "unselectable" : "" %>'>Apply Changes</button>
+                            </td>
+                            <td>
+                                <button class='delete <%= [0, 1].includes(user_groups[i].id) ? "unselectable" : "" %>'>Delete Group</button>
+                            </td>
+                        </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+                <button>
+                    Add Group
+                </button>
+            </details>
+            <details>
+                <summary>
+                    <h2>File Log</h2>
+                </summary>
+                <table>
+                    <thead>
+                        <tr>
+                            <td>File</td>
+                            <td>Action</td>
+                            <td>Username</td>
+                            <td>Time</td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% for (let i = 0; i < fileLog.length; i++){ %>
+                        <tr class="<%= fileLog[i].action == 3 ? 'negative' : fileLog[i].action == 2 ? 'positive' : '' %>">
+                            <td>
+                                <%= fileLog[i].file %>
+                            </td>
+                            <td>
+                                <%= ["read", "write", "create", "delete"][fileLog[i].action] %>
+                            </td>
+                            <td class="username">
+                                <% var found = false; %>
+                                <% for (let n = 0; n < users.length; n++){if(users[n].id === fileLog[i].userID){ %>
+                                <%= users[n].username %>
+                                <% found=true; %>
+                                <% break}} %>
+                                <%= !found ? "Deleted User" : "" %>
+                            </td>
+                            <td>
+                                <%= new Date(fileLog[i].time + " GMT").toLocaleString() %>
+                            </td>
+                        </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </details>
+            <details>
+                <summary>
+                    <h2>Login Log</h2>
+                </summary>
+                <table>
+                    <thead>
+                        <tr>
+                            <td>Username</td>
+                            <td>Failed</td>
+                            <td>Time</td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% for (let i = 0; i < loginLog.length; i++){ %>
+                        <tr class = "<%= loginLog[i].failed ? 'negative' : 'positive' %>">
+                            <td>
+                                <% var found = false; %>
+                                <% for (let n = 0; n < users.length; n++){if(users[n].id === loginLog[i].userID){ %>
+                                <%= users[n].username%>
+                                <% found=true; %>
+                                <% break}} %>
+                                <%= !found ? "Deleted User" : "" %>
+                            </td>
+                            <td>
+                                <%= loginLog[i].failed ? "true" : "false" %>
+                            </td>
+                            <td>
+                                <%= new Date(loginLog[i].time + " GMT").toLocaleString() %>
+                            </td>
+                        </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </details>
+            <script defer>
+                function unblockAcc(id){
+                    let req = new XMLHttpRequest();
+                    req.open('GET', '/unblockAccount?userID='+id);
+                    req.send();
+                    req.onload = function(){
+                        let res = JSON.parse(req.responseText)
+                        if (res.alertType == 2){
+                            createErrorAlert(res.alert);
+                        }else{
+                            createSuccessAlert(res.alert);
+                        }
+                    }
+                }
+                function delUser(id){
+                    createInfoAlert("If there are no admin users after deletion the next account to be created becomes an admin!")
+                    askInput("You sure you want to delete user?", [], ()=>{
+                    let req = new XMLHttpRequest();
+                    req.open('GET', '/delUser?userID='+id);
+                    req.send();
+                    req.onload = function(){
+                        let res = JSON.parse(req.responseText)
+                        if (res.alertType == 2){
+                            createErrorAlert(res.alert);
+                        }else{
+                            createSuccessAlert(res.alert);
+                        }
+                    }
+                    })
+                }
+            </script>
     </body>
 </html>

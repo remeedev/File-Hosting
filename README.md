@@ -14,3 +14,8 @@ A working local file hoster, to be accessed by any device with a login to the se
 - Add and delete folders
 - Drag in files
 - Upload and create file buttons amongst file views.
+- Unblock blocked accounts as admin
+- Delete accounts as admin and self as user
+- Full view of logs, users and user groups in the admin panel
+- User deletion is registered in the file log with a path of users:{id}
+

@@ -3,6 +3,7 @@
     min-height: 60%;
     max-height: 80%;
     border: 5px solid lightgray;
+    overflow-y: scroll;
     border-radius: 25px;
 }
 
@@ -14,51 +15,87 @@
     border-top-right-radius: 10px;
 }
 
-.dropdown h2 {
-    width: 100%;
-    padding: 5px;
-    background-color: lightgray;
-}
-
-.dropdown {
+details {
     border: 2px solid lightgray;
-    border-radius: 5px;
-    width: 70%;
+    width: 80%;
     margin: 15px auto;
-    display: block;
-    height: calc(1.25em + 10px);
-    overflow: hidden;
-    position: relative;
-    line-height: 1.25;
-    transition: height 0.3s ease;
-}
-
-.dropdown::after {
-    content: '';
-    display: block;
-    position: absolute;
-    right: 5px;
-    top: 5px;
-    width: 1%;
-    aspect-ratio: 1;
-    border-right: 5px solid gray;
-    border-top: 5px solid gray;
-    transform: rotate(45deg);
-    transition: transform 0.3s ease;
-}
-
-.dropdown:hover::after{
-    transform: rotate(135deg);
-}
-
-.dropdown:hover {
-    height: 50%;
-}
-
-.dropdown .drop {
+    border-radius: 15px;
+    max-height: 50%;
     overflow-y: scroll;
 }
 
-.dropdown .entry {
-    display: flex;
+summary h2 {
+    display: inline-block;
+    pointer-events: none;
+    user-select: none;
 }
+
+details > *:not(summary) {
+    margin-bottom: 5px;
+    margin-left: 5%;
+    width: 90%;
+}
+
+details summary {
+    background-color: lightgray;
+    padding: 5px;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+details table {
+    border: 1px solid black;
+}
+
+table thead {
+    background-color: lightgray;
+    font-weight: bolder;
+}
+
+table td:not(:first-child):not(:last-child) {
+    margin: 0;
+    border-right: 1px solid black;
+    border-left: 1px solid black;
+}
+
+table tr.positive {
+    background-color: lightgreen;
+}
+
+table tr.negative {
+    background-color: pink;
+}
+
+button.apply, button.delete {
+    all: unset;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 3px;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+}
+
+button.apply:hover, button.delete:hover {
+    opacity: 1;
+}
+
+button.apply {
+    background-color: skyblue;
+}
+
+button.delete {
+    background-color: pink;
+}
+
+button.unselectable {
+    background-color: gray;
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.unselectable > * > * {
+    background-color: gray;
+    opacity: 0.3;
+    pointer-events: none;
+}
+

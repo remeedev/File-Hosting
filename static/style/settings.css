@@ -10,7 +10,7 @@
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
-#settings div{
+#settings div:not(.bottombutt){
     width: 100%;
     display: flex;
     margin: 5px 0;
@@ -37,10 +37,13 @@
     all: unset;
 }
 
-#logout {
+.bottombutt{
     position: absolute !important;
     bottom: 15px !important;
     left: 15px !important;
+}
+
+#logout {
     background-color: red !important;
     border: 1px solid red !important;
     color: white !important;

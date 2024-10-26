@@ -175,7 +175,6 @@ function deleteFolder(){
                             continue;
                         }
                         let path = window.location.pathname.split("/").slice(2).join('/')
-                        console.log(fileObj)
                         let formData = new FormData()
                         formData.append("path", path);
                         formData.append("file", fileObj)
@@ -269,6 +268,22 @@ function deleteFolder(){
                     container.removeChild(loading);
                     let pDiv = fileName.split('.')
                     const extension = pDiv[pDiv.length - 1]
+                    function nonButton(){
+                        let downloadButton = document.createElement("a")
+                        downloadButton.classList.add('randomA')
+                        downloadButton.innerText = 'Download File'
+                        downloadButton.href = "./file/" + fileName;
+                        downloadButton.download = "";
+                        container.appendChild(downloadButton)
+                    }
+                    function imgButton(){
+                        let downloadButton = document.createElement("a")
+                        downloadButton.classList.add('randomA')
+                        downloadButton.innerText = 'Download File'
+                        downloadButton.href = "./raw/" + fileName;
+                        downloadButton.download = "";
+                        container.appendChild(downloadButton)
+                    }
                     if (res.erase){
                         let deleteButton = document.createElement("a")
                         deleteButton.classList.add("randomA")
@@ -284,20 +299,24 @@ function deleteFolder(){
                         container.appendChild(modifyButton)
                     }
                     if (extension == "md"){
+                        nonButton()
                         let mdBlock = document.createElement("md-block")
                         mdBlock.innerHTML = res.content;
                         container.appendChild(mdBlock)
-                    }else if(["png", "jpg", "jpeg"].includes(extension)){
+                    }else if(["png", "jpg", "jpeg", "webp"].includes(extension)){
+                        imgButton();
                         let img = document.createElement("img")
                         img.src= `./raw/${fileName}`
                         container.appendChild(img);
                     }else if(["js", "css", "html"].includes(extension)){
+                        nonButton()
                         let content = document.createElement("script")
                         content.style.display = "inline"
                         content.type = "text/plain"
                         content.innerHTML = res.content;
                         container.appendChild(content)
                     }else{
+                        nonButton();
                         plain_text.innerText = res.content;
                         container.appendChild(plain_text);
                     }
