@@ -28,20 +28,14 @@ let db = new sqlite.Database('./users.db', (err) => {
 db.run("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, passwordHash TEXT NOT NULL, user_group int)")
 db.run("CREATE TABLE IF NOT EXISTS loginLog (userID int, time datetime, sessionID string, failed boolean)")
 db.run("CREATE TABLE IF NOT EXISTS fileLog (file string, action int, userID int, time datetime)")
-db.run("CREATE TABLE IF NOT EXISTS user_groups (id int, read int, write int, createP int, deleteP int)")
+db.run("CREATE TABLE IF NOT EXISTS user_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, read int, write int, createP int, deleteP int)")
 db.run("CREATE TABLE IF NOT EXISTS file_privilege (groupID int, file STRING, read int, write int, deleteP int)")
 // Give admin all permissions
-db.all("SELECT * FROM user_groups WHERE id = 0", (err, rows)=>{
+db.all("SELECT * FROM user_groups", (err, rows)=>{
     if (err) return err;
     if (rows.length == 0){
         db.run("INSERT INTO user_groups (id, read, write, createP, deleteP) VALUES (0, 1, 1, 1, 1)")
-    }
-})
-// Give new users only read
-db.all("SELECT * FROM user_groups WHERE id = 1", (err, rows)=>{
-    if (err) return err;
-    if (rows.length == 0){
-        db.run("INSERT INTO user_groups (id, read, write, createP, deleteP) VALUES (1, 1, 0, 0, 0)")
+        db.run("INSERT INTO user_groups (read, write, createP, deleteP) VALUES (1, 0, 0, 0)")
     }
 })
 
@@ -208,8 +202,8 @@ app.get('/', async (req, res) => {
                 var admin = usernames[0].user_group === 0
                 const allowRead = await processRequest(0, res, req.session.id);
                 if (allowRead.permission){
-                    files = await getFiles(path.join(__dirname, "files"))
-                    folders = await getDirectories(path.join(__dirname, "files"))
+                    files = getFiles(path.join(__dirname, "files"))
+                    folders = getDirectories(path.join(__dirname, "files"))
                 }
                 let params = {
                     username: username,
@@ -253,8 +247,8 @@ app.get('/path/:path(*)', async (req, res)=>{
     const allowRead = await processRequest(0, res, req.session.id);
     if (allowRead.permission){
         try{
-            files = await getFiles(path.join(__dirname, "files", req.params.path))
-            folders = await getDirectories(path.join(__dirname, "files", req.params.path))
+            files = getFiles(path.join(__dirname, "files", req.params.path))
+            folders = getDirectories(path.join(__dirname, "files", req.params.path))
         }catch(error){
             res.redirect("/")
             return
@@ -460,11 +454,11 @@ app.get("/erase/:path(*)", async (req, res)=>{
 })
 
 // Change password
-app.get('/password', async (req, res)=>{
+app.post('/password', async (req, res)=>{
     if (req.session.id){
         const passwords = await getUserInfo(req.session.id)
-        const newpass = req.query.newpass
-        const pw = req.query.pw
+        const newpass = req.body.newpass
+        const pw = req.body.pw
         if (newpass.length < 8 || newpass.length > 16){
             res.send({
                 alert: "Password must be between 8 and 16 characters",
@@ -483,16 +477,16 @@ app.get('/password', async (req, res)=>{
         const passwordHash = passwords[0].passwordHash
         const pwRight =await comparePw(pw, passwordHash);
         if (pwRight){
-            await bcrypt.genSalt(saltRounds, async (err, salt)=>{
+            bcrypt.genSalt(saltRounds, async (err, salt)=>{
                 if (err) return err;
-                await bcrypt.hash(pw, salt, async (err, hash)=>{
+                bcrypt.hash(newpass, salt, async (err, hash)=>{
                     if(err) return err;
                     db.run("UPDATE users SET passwordHash = ? WHERE id = ?", hash, passwords[0].id);
+                    res.send({
+                        alert: "Succesfully Changed password",
+                        alertType: 4
+                    })
                 })
-            })
-            res.send({
-                alert: "Succesfully Changed password",
-                alertType: 4
             })
             return
         }else{
@@ -507,10 +501,10 @@ app.get('/password', async (req, res)=>{
 })
 
 // Change username
-app.get('/username', async (req, res)=>{
+app.post('/username', async (req, res)=>{
     if (req.session.id){
         const passwords = await getUserInfo(req.session.id)
-        const username = req.query.username
+        const username = req.body.username
         if (username.length < 3 || username.length > 15){
             res.send({
                 alert: "Username must be between 3 and 15 characters",
@@ -518,7 +512,15 @@ app.get('/username', async (req, res)=>{
             })
             return
         }
-        const pw = req.query.password
+        const checker = await getData("SELECT * FROM users WHERE username = ?", username);
+        if (checker.length > 0){
+            res.send({
+                alert: "Username already in use",
+                alertType: 2
+            })
+            return
+        }
+        const pw = req.body.password
         const passwordHash = passwords[0].passwordHash
         const pwRight = await comparePw(pw, passwordHash);
         if (pwRight){
@@ -533,6 +535,7 @@ app.get('/username', async (req, res)=>{
                 alert: "Wrong password!",
                 alertType: 2
             })
+            return
         }
     }else{
         res.redirect("/")
@@ -676,8 +679,8 @@ app.post('/signin', async (req, res)=>{
         if (err) return err;
         bcrypt.hash(password, salt, async (err, hash)=>{
             if(err) return err;
-            const count = await getData("SELECT COUNT(*) AS count FROM users");
-            await db.get("INSERT INTO users (username, passwordHash, user_group) VALUES (?, ?, ?)", username, hash, count[0].count == 0 ? 0 : 1, (err, row)=>{
+            const count = await getData("SELECT COUNT(*) AS count FROM users WHERE user_group = 0");
+            db.get("INSERT INTO users (username, passwordHash, user_group) VALUES (?, ?, ?)", username, hash, count[0].count == 0 ? 0 : 1, (err, row)=>{
                 if (err) return err;
             })
         })
@@ -747,7 +750,15 @@ app.get('/delUser', async (req, res)=>{
         }
     }
     try{
-        await registerLog(3, "users:"+id, req.session.id)
+        let userDeleted = await getData("SELECT username FROM users WHERE id = ?", id);
+        if (userDeleted.length == 0){
+            res.send({
+                alert: 'User does not exist',
+                alertType: 2
+            })
+            return
+        }
+        await registerLog(3, "users:"+userDeleted[0].username, req.session.id)
         await getData("DELETE FROM users WHERE id = ?", id);
         res.send({
             alert: "Succesfully deleted user",
@@ -757,6 +768,216 @@ app.get('/delUser', async (req, res)=>{
     }catch(error){
         res.send({
             alert: "There was an error deleting the user",
+            alertType: 2
+        })
+        return
+    }
+})
+
+// Function to edit the user info as admin
+app.get('/editUserInfo', async (req, res)=>{
+    if (req.session.id == undefined){
+        res.redirect("/login")
+        return
+    }
+    const userInfo = await getUserInfo(req.session.id);
+    // Admin shouldn't need to go admin panel to change his username and can't demote himself
+    if (userInfo[0].user_group != 0){
+        res.send({
+            alert: 'Only an admin may edit users information',
+            alertType: 2
+        })
+    }
+    const userGroup = req.query.userGroup;
+    const username = req.query.username;
+    const userID = req.query.userID;
+    if (((userGroup == undefined || userGroup == '') && (username == undefined || username=="")) || userID == undefined){
+        res.send({
+            alert: "userID must be given along with a username or a user group",
+            alertType: 2
+        })
+        return
+    }
+    if (username.length < 3 || username.length > 15){
+        res.send({
+            alert: "Username must be between 3 and 15 characters",
+            alertType: 2
+        })
+        return
+    }
+    if (userInfo[0].id == userID){
+        res.send({
+            alert: "Go to account tab to change your information, demoting yourself is not available",
+            alertType: 2
+        })
+        return
+    }
+    try {
+        const user_group = await getData("SELECT * FROM user_groups WHERE id = ?", userGroup)
+        if (user_group.length == 0){
+            res.send({
+                alert: "That user group does not exist",
+                alertType: 2
+            })
+            return
+        }
+        const otherPerson = await getData("SELECT * FROM users WHERE id = ?", userID);
+        if (otherPerson.length == 0){
+            res.send({
+                alert:"User does not exist",
+                alertType: 2
+            })
+            return
+        }
+        const check = await getData("SELECT * FROM users WHERE username = ?", username);
+        if (check.length > 0){
+            if (check[0].id != userID){
+                res.send({
+                    alert: "User with that username already exists",
+                    alertType: 2
+                })
+                return
+            }
+        }
+        if (username){
+            await getData("UPDATE users SET username = ? WHERE id = ?", [username, userID])
+        }
+        if (userGroup){
+            await getData("UPDATE users SET user_group = ? WHERE id = ?", [userGroup, userID])
+        }
+        res.send({
+            alert: "Changes submitted succesfully",
+            alertType: 4
+        })
+        return
+    }catch(error){
+        res.send({
+            alert: "There was an error while saving",
+            alertType: 2
+        })
+        return
+    }
+})
+
+// Delete user group
+app.get('/deleteUserGroup', async (req, res)=>{
+    const groupID = req.query.id;
+    if (!groupID){
+        res.send({
+            alert: "you need to give a group ID",
+            alertType: 2
+        })
+        return
+    }
+    if (req.session.id == undefined){
+        res.redirect("/login")
+        return
+    }
+    const userinfo = await getUserInfo(req.session.id);
+    if (userinfo[0].user_group != 0){
+        res.send({
+            alert: "You need to be an admin to delete a group",
+            alertType: 2
+        })
+        return
+    }
+    try {
+        await getData("DELETE FROM user_groups WHERE id = ?", [groupID])
+        db.run("UPDATE users SET user_group = 1 WHERE user_group = ?", groupID)
+        res.send({
+            alert: "User group succesfully deleted",
+            alertType: 4
+        })
+        return
+    }catch(error){
+        console.log(error)
+        res.send({
+            alert: "there was an error deleting the group",
+            alertType: 2
+        })
+        return
+    }
+})
+
+// Create user group
+app.get('/createUserGroup', async (req, res)=>{
+    const read = +!isNaN(+req.query.read);
+    const write = +!isNaN(+req.query.write);
+    const create = +!isNaN(+req.query.create);
+    const deleteP = +!isNaN(+req.query.delete);
+    if (req.session.id == undefined){
+        res.redirect("/login")
+        return
+    }
+    const userinfo = await getUserInfo(req.session.id);
+    if (userinfo[0].user_group != 0){
+        res.send({
+            alert: "You need to be an admin to create a group",
+            alertType: 2
+        })
+        return
+    }
+    try {
+        await getData("INSERT INTO user_groups (read, write, createP, deleteP) VALUES (?, ?, ?, ?)", [read, write, create, deleteP])
+        res.send({
+            alert: "User group succesfully created",
+            alertType: 4
+        })
+        return
+    }catch(error){
+        console.log(error)
+        res.send({
+            alert: "there was an error creating the group",
+            alertType: 2
+        })
+        return
+    }
+})
+
+// Edit user group
+app.get('/editUserGroup', async (req, res)=>{
+    const groupID = req.query.groupID;
+    if (!groupID){
+        res.send({
+            alert: 'No group ID was given',
+            alertType: 2
+        })
+        return
+    }
+    if (groupID == 0 || groupID == 1){
+        res.send({
+            alert: "Cannot edit admin or default group privileges",
+            alertType: 2
+        })
+        return;
+    }
+    const read = +!isNaN(+req.query.read);
+    const write = +!isNaN(+req.query.write);
+    const create = +!isNaN(+req.query.create);
+    const deleteP = +!isNaN(+req.query.delete);
+    if (req.session.id == undefined){
+        res.redirect("/login")
+        return
+    }
+    const userinfo = await getUserInfo(req.session.id);
+    if (userinfo[0].user_group != 0){
+        res.send({
+            alert: "You need to be an admin to edit a group",
+            alertType: 2
+        })
+        return
+    }
+    try {
+        await getData("UPDATE user_groups SET read = ?, write= ?, createP=?, deleteP=? WHERE id=?", [read, write, create, deleteP, groupID])
+        res.send({
+            alert: "User group succesfully edited",
+            alertType: 4
+        })
+        return
+    }catch(error){
+        console.log(error)
+        res.send({
+            alert: "there was an error editing the group",
             alertType: 2
         })
         return
@@ -802,7 +1023,7 @@ app.post('/login', async (req, res)=>{
             res.redirect("/");
             return 
         } else {
-            await db.get("INSERT INTO loginLog (userID, time, failed) VALUES (?, CURRENT_TIMESTAMP, ?)", user.id, true, (err, row)=>{
+            db.get("INSERT INTO loginLog (userID, time, failed) VALUES (?, CURRENT_TIMESTAMP, ?)", user.id, true, (err, row)=>{
                 if(err) return err;
             })
         }

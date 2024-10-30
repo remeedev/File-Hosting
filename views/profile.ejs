@@ -33,36 +33,47 @@
             }
              function changeUsername(){
                 askInput("Enter data", ["New username", "Password"], (data)=>{
-                    let req = new XMLHttpRequest();
-                    req.open('GET', `/username?username=${data[0]}&password='${data[1]}'`, true);
-                    req.send()
-                    req.onload = ()=>{
-                        const res = JSON.parse(req.responseText)
-                        if (res.alertType == 2){
-                            createErrorAlert(res.alert)
-                        }else{
-                            createSuccessAlert(res.alert)
-                            setTimeout(()=>{
-                                window.location.reload()
-                             }, 1000)
+                    let formData = new FormData()
+                    formData.append("password", data[1]);
+                    formData.append("username", data[0])
+                    var req = fetch('/username', {
+                        method: 'POST',
+                        body: formData
+                    }).then(function(response){
+                        return response.json()
+                    }).then(function(data){
+                        if (data.alertType == 2){
+                            createErrorAlert(data.alert)
+                            return
                         }
-                    }
+                        createSuccessAlert(data.alert)
+                        setTimeout(()=>{
+                            window.location.reload()
+                        }, 1000)
+                    })
                 })
              }
 
              function changePass(){
                  askInput("Enter data", ["Old password", "New Password"], (data)=>{
-                    let req = new XMLHttpRequest();
-                    req.open('GET', `/password?newpass=${data[1]}&pw='${data[0]}'`, true);
-                    req.send()
-                    req.onload = ()=>{
-                        const res = JSON.parse(req.responseText)
-                        if (res.alertType == 2){
-                            createErrorAlert(res.alert)
-                        }else{
-                            createSuccessAlert(res.alert)
+                    let formData = new FormData()
+                    formData.append("pw", data[0]);
+                    formData.append("newpass", data[1])
+                    var req = fetch('/password', {
+                        method: 'POST',
+                        body: formData
+                    }).then(function(response){
+                        return response.json()
+                    }).then(function(data){
+                        if (data.alertType == 2){
+                            createErrorAlert(data.alert)
+                            return
                         }
-                    }
+                        createSuccessAlert(data.alert)
+                        setTimeout(()=>{
+                            window.location.reload()
+                        }, 1000)
+                    })
                 })
              }
         </script>

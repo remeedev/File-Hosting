@@ -28,28 +28,38 @@
                     </thead>
                     <tbody>
                         <% for (let i = 0; i < users.length; i++){ %>
-                        <tr>
+                            <tr id='user<%= i %>'>
                             <td>
-                                <%= users[i].id %>
+                                <%= i+1 %>
                             </td>
                             <td>
-                                <input type="text" value="<%= users[i].username%>">
+                                <% if (locals.username != users[i].username){ %>
+                                    <input type="text" value="<%= users[i].username%>">
+                        <% }else{ %>
+                                    <p><%= users[i].username %></p>
+                                <% } %>
                             </td>
                             <td>
+                                <% if (locals.username != users[i].username){ %>
                                 <select value='<%= users[i].user_group %>'>
                                     <% for (let n = 0; n < user_groups.length; n++){ %>
-                                    <option value='<%= user_groups[n].id %>' <%= users[i].user_group == user_groups[n].id  ? 'selected' : '' %>><%= user_groups[n].id == 0 ? 'admin' : user_groups[n].id == 1 ? 'default' : user_groups[i].id-2 %></option>
+                                    <option value='<%= user_groups[n].id %>' <%= users[i].user_group == user_groups[n].id  ? 'selected' : '' %>><%= user_groups[n].id == 0 ? 'admin' : user_groups[n].id == 1 ? 'default' : n-1 %></option>
                                     <% } %>
                                 </select>
+                                <% }else{ %>
+                                <p>
+                                <%= 'admin' %>
+                                </p>
+                        <% } %>
                             </td>
                             <td>
-                                <button class="apply">Apply Changes</button>
+                        <button class="apply <%= users[i].username == locals.username ? 'unselectable' : '' %>" onclick='applyChanges(<%= i %>, <%= users[i].id %>)'>Apply Changes</button>
                             </td>
                             <td>
-                                <button class="apply" onclick='unblockAcc(<%= users[i].id %>)'>Unblock Account</button>
+                                <button class="apply <%= users[i].username == locals.username ? 'unselectable' : '' %>" onclick='unblockAcc(<%= users[i].id %>)'>Unblock Account</button>
                             </td>
                             <td>
-                                <button class='delete' onclick="delUser(<%= users[i].id %>)">Delete User</button>
+                                <button class='delete <%= users[i].username == locals.username ? 'unselectable' : '' %>' onclick="delUser(<%= users[i].id %>)">Delete User</button>
                             </td>
                         </tr>
                         <% } %>
@@ -72,11 +82,11 @@
                             <td>Delete Group</td>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="userGroups">
                         <% for (let i = 0; i < user_groups.length; i++){ %>
-                        <tr <%= [0, 1].includes(user_groups[i].id) ? 'class=unselectable' : '""' %>>
+            <tr <%= [0, 1].includes(user_groups[i].id) ? 'class=unselectable' : '""' %> id="group<%= user_groups[i].id %>">
                             <td>
-<%= user_groups[i].id == 0 ? 'admin' : user_groups[i].id == 1 ? 'default' : user_groups[i].id-2 %>
+<%= user_groups[i].id == 0 ? 'admin' : user_groups[i].id == 1 ? 'default' : i-1 %>
                             </td>
                             <td>
                                 <input type="checkbox" <%= user_groups[i].read ? 'checked' : ''%> >
@@ -91,16 +101,16 @@
                                 <input type="checkbox" <%= user_groups[i].deleteP ? 'checked' : ''%> >
                             </td>
                             <td>
-                                <button class='apply <%= [0, 1].includes(user_groups[i].id) ? "unselectable" : "" %>'>Apply Changes</button>
+                                    <button class='apply <%= [0, 1].includes(user_groups[i].id) ? "unselectable" : "" %>' onclick="applyChangesGroup(<%= user_groups[i].id %>)">Apply Changes</button>
                             </td>
                             <td>
-                                <button class='delete <%= [0, 1].includes(user_groups[i].id) ? "unselectable" : "" %>'>Delete Group</button>
+                                    <button class='delete <%= [0, 1].includes(user_groups[i].id) ? "unselectable" : "" %>' onclick="deleteGroup(<%= user_groups[i].id %>)">Delete Group</button>
                             </td>
                         </tr>
                         <% } %>
                     </tbody>
                 </table>
-                <button>
+                <button onclick="addUserGroup()">
                     Add Group
                 </button>
             </details>
@@ -177,6 +187,45 @@
                 </table>
             </details>
             <script defer>
+                function applyChangesGroup(groupID){
+                    const entries = document.getElementById("group"+groupID).getElementsByTagName("td")
+                    const read = entries[1].children[0].checked;
+                    const write = entries[2].children[0].checked;
+                    const create = entries[3].children[0].checked;
+                    const deleteP = entries[4].children[0].checked;
+                    var permissions = []
+                    permissions.push("groupID="+groupID)
+                    if (read) permissions.push("read")
+                    if (write) permissions.push("write")
+                    if (create) permissions.push('create')
+                    if (deleteP) permissions.push("delete")
+                    const url = `/editUserGroup?${permissions.join("&")}`
+                    let req = new XMLHttpRequest();
+                    req.open('GET', url);
+                    req.send();
+                    req.onload = function(){
+                        let res = JSON.parse(req.responseText)
+                        if (res.alertType == 2){
+                            createErrorAlert(res.alert);
+                        }else{
+                            createSuccessAlert(res.alert);
+                            setTimeout(()=>{window.location.reload()}, 1000)
+                        }
+                    }
+                }
+                function deleteGroup(id){
+                    let req = new XMLHttpRequest();
+                    req.open('GET', '/deleteUserGroup?id='+id);
+                    req.send();
+                    req.onload = function(){
+                        let res = JSON.parse(req.responseText)
+                        if (res.alertType == 2){
+                            createErrorAlert(res.alert);
+                        }else{
+                            createSuccessAlert(res.alert);
+                        }
+                    }
+                }
                 function unblockAcc(id){
                     let req = new XMLHttpRequest();
                     req.open('GET', '/unblockAccount?userID='+id);
@@ -205,6 +254,63 @@
                         }
                     }
                     })
+                }
+
+                function applyChanges(inID, id){
+                    const form = document.getElementById('user'+inID);
+                    const username = form.getElementsByTagName("input")[0].value;
+                    const user_group = form.getElementsByTagName('select')[0].value;
+                    let req = new XMLHttpRequest();
+                    req.open('GET', `/editUserInfo?userID=${id}&username=${username}&userGroup=${user_group}`);
+                    req.send();
+                    req.onload = function(){
+                        let res = JSON.parse(req.responseText)
+                        if (res.alertType == 2){
+                            createErrorAlert(res.alert);
+                        }else{
+                            createSuccessAlert(res.alert);
+                        }
+                    }
+                }
+
+                function addUserGroup(){
+                    if (document.getElementById('groupCreator')) return
+                    const groupTable = document.getElementById("userGroups")
+                    var newRow = document.createElement("tr")
+                    newRow.id = 'groupCreator'
+                    newRow.innerHTML = "<td></td>"
+                    for (let i = 0; i < 4; i++){
+                        newRow.innerHTML = newRow.innerHTML + "<td> <input type='checkbox'> </td>"
+                    }
+                    newRow.innerHTML = newRow.innerHTML + "<td><button class='apply'>Apply changes</button></td>"
+                    newRow.innerHTML = newRow.innerHTML + "<td><button class='delete'>Remove Group</button></td>"
+                    entries = newRow.getElementsByTagName("td")
+                    entries[entries.length-1].children[0].onclick =()=>{groupTable.removeChild(newRow)}
+                    entries[entries.length-2].children[0].onclick=()=>{
+                        const read = entries[1].children[0].checked;
+                        const write = entries[2].children[0].checked;
+                        const create = entries[3].children[0].checked;
+                        const deleteP = entries[4].children[0].checked;
+                        var permissions = []
+                        if (read) permissions.push("read")
+                        if (write) permissions.push("write")
+                        if (create) permissions.push('create')
+                        if (deleteP) permissions.push("delete")
+                        const url = `/createUserGroup?${permissions.join("&")}`
+                        let req = new XMLHttpRequest();
+                        req.open('GET', url);
+                        req.send();
+                        req.onload = function(){
+                            let res = JSON.parse(req.responseText)
+                        if (res.alertType == 2){
+                            createErrorAlert(res.alert);
+                        }else{
+                            createSuccessAlert(res.alert);
+                            setTimeout(()=>{window.location.reload()}, 1000)
+                        }
+                    }
+                    }
+                    groupTable.appendChild(newRow)
                 }
             </script>
     </body>

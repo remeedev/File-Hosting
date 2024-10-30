@@ -259,6 +259,7 @@ function deleteFolder(){
                 req.send()
                 // Reading response
                 req.onload = function(){
+                    var imgExtensions = ["ico", "png", "jpg", "jpeg", "webp"]
                     const res = JSON.parse(req.responseText);
                     if (res.error){
                         createErrorAlert(res.content);
@@ -272,7 +273,7 @@ function deleteFolder(){
                         let downloadButton = document.createElement("a")
                         downloadButton.classList.add('randomA')
                         downloadButton.innerText = 'Download File'
-                        downloadButton.href = "./file/" + fileName;
+                        downloadButton.href = "./file" + fileName;
                         downloadButton.download = "";
                         container.appendChild(downloadButton)
                     }
@@ -280,7 +281,7 @@ function deleteFolder(){
                         let downloadButton = document.createElement("a")
                         downloadButton.classList.add('randomA')
                         downloadButton.innerText = 'Download File'
-                        downloadButton.href = "./raw/" + fileName;
+                        downloadButton.href = "./raw" + fileName;
                         downloadButton.download = "";
                         container.appendChild(downloadButton)
                     }
@@ -291,7 +292,7 @@ function deleteFolder(){
                         deleteButton.href = "./erase" + fileName
                         container.appendChild(deleteButton)
                     }
-                    if (res.modify && ["png", "jpg", "jpeg"].includes(extension) == false){
+                    if (res.modify && imgExtensions.includes(extension) == false){
                         let modifyButton = document.createElement("a")
                         modifyButton.classList.add("randomA")
                         modifyButton.innerText = "Edit File"
@@ -303,7 +304,7 @@ function deleteFolder(){
                         let mdBlock = document.createElement("md-block")
                         mdBlock.innerHTML = res.content;
                         container.appendChild(mdBlock)
-                    }else if(["png", "jpg", "jpeg", "webp"].includes(extension)){
+                    }else if(imgExtensions.includes(extension)){
                         imgButton();
                         let img = document.createElement("img")
                         img.src= `./raw/${fileName}`
