@@ -22,22 +22,29 @@ let db = new sqlite.Database('./users.db', (err) => {
     console.error(err.message);
   }
   console.log('Connected to the my database.');
+    // Populate database if not yet populated
+    db.run("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, passwordHash TEXT NOT NULL, user_group int)")
+    db.run("CREATE TABLE IF NOT EXISTS loginLog (userID int, time datetime, sessionID string, failed boolean)")
+    db.run("CREATE TABLE IF NOT EXISTS fileLog (file string, action int, userID int, time datetime)")
+    db.run("CREATE TABLE IF NOT EXISTS user_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, read int, write int, createP int, deleteP int)")
+    db.run("CREATE TABLE IF NOT EXISTS file_privilege (id INTEGER PRIMARY KEY AUTOINCREMENT, groupID int, file STRING, read int, write int, deleteP int)")
+    // Give admin all permissions
+    db.all("SELECT * FROM user_groups", (err, rows)=>{
+        if (err) console.log(err);
+        if (rows.length == 0){
+            db.run("INSERT INTO user_groups (id, read, write, createP, deleteP) VALUES (0, 1, 1, 1, 1)")
+            db.run("INSERT INTO user_groups (read, write, createP, deleteP) VALUES (1, 0, 0, 0)")
+        }
+    })
+    db.all("SELECT * FROM file_privilege", (err, rows)=>{
+        if (err) return err;
+        if (rows.length == 0){
+            db.run("INSERT INTO file_privilege (groupID, file, read, write, deleteP) VALUES (0, 'hidden.txt', 1, 1, 1)")
+        }
+    })
 });
 
-// Populate database if not yet populated
-db.run("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, passwordHash TEXT NOT NULL, user_group int)")
-db.run("CREATE TABLE IF NOT EXISTS loginLog (userID int, time datetime, sessionID string, failed boolean)")
-db.run("CREATE TABLE IF NOT EXISTS fileLog (file string, action int, userID int, time datetime)")
-db.run("CREATE TABLE IF NOT EXISTS user_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, read int, write int, createP int, deleteP int)")
-db.run("CREATE TABLE IF NOT EXISTS file_privilege (groupID int, file STRING, read int, write int, deleteP int)")
-// Give admin all permissions
-db.all("SELECT * FROM user_groups", (err, rows)=>{
-    if (err) return err;
-    if (rows.length == 0){
-        db.run("INSERT INTO user_groups (id, read, write, createP, deleteP) VALUES (0, 1, 1, 1, 1)")
-        db.run("INSERT INTO user_groups (read, write, createP, deleteP) VALUES (1, 0, 0, 0)")
-    }
-})
+
 
 // Function to compare passwords asynchronously
 const comparePw= (password, hash) => {
@@ -132,8 +139,35 @@ const getFiles = source =>
     .filter(dirent => dirent.isFile())
     .map(dirent => dirent.name)
 
+// Register action in file log
+async function registerLog(action, path, sessionID){
+    const userInfo = await getUserInfo(sessionID)
+    const userID = userInfo[0].id;
+    db.run("INSERT INTO fileLog (file, action, userID, time) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", path, action, userID);
+    return
+}
+
+// Get user information
+async function getUserInfo(sessionID){
+    const userInformation = await getData("SELECT users.* FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", sessionID);
+    return userInformation;
+}
+
+// Check for specific file privileges
+async function checkFilePrivilege(groupID, path, action){
+    if (groupID == 0)return true;
+    try{
+        const existence = await getData("SELECT * FROM file_privilege WHERE file=?", path);
+        const whitelist = await getData(`SELECT * FROM file_privilege WHERE groupID = ? AND file = ? AND ${action}=1`, [groupID, path])
+        return (existence.length == 0 || whitelist.length > 0);
+    }catch(error){
+        console.log(error)
+    }
+    return false;
+}
+
 // Process user request
-async function processRequest(requestType, res, sessionID){
+async function processRequest(requestType, res, sessionID, path=undefined){
     let returnValue = {
         permission: sessionID != undefined,
         read: false,
@@ -141,8 +175,12 @@ async function processRequest(requestType, res, sessionID){
         create: false,
         modify: false
     }
-    const user_info = await getUserInfo(sessionID)
     if (returnValue.permission == false){
+        return returnValue
+    }
+    const user_info = await getUserInfo(sessionID)
+    if (path != undefined){
+        returnValue.permission = await checkFilePrivilege(user_info[0].user_group, path, ["read", "write", 'deleteP'][requestType == 3 ? 2 : requestType])
         return returnValue
     }
     const user_group = user_info[0].user_group;
@@ -170,20 +208,6 @@ async function processRequest(requestType, res, sessionID){
     return returnValue
 }
 
-// Register action in file log
-async function registerLog(action, path, sessionID){
-    const userInfo = await getUserInfo(sessionID)
-    const userID = userInfo[0].id;
-    db.run("INSERT INTO fileLog (file, action, userID, time) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", path, action, userID);
-    return
-}
-
-// Get user information
-async function getUserInfo(sessionID){
-    const userInformation = await getData("SELECT users.* FROM users JOIN loginLog ON users.id = loginLog.userID WHERE sessionID = ? ORDER BY time DESC", sessionID);
-    return userInformation;
-}
-
 // Main webpage, handles all connections
 app.get('/', async (req, res) => {
     db.get("SELECT COUNT(*) as count FROM users WHERE user_group = 0", async (err, row)=>{
@@ -202,8 +226,21 @@ app.get('/', async (req, res) => {
                 var admin = usernames[0].user_group === 0
                 const allowRead = await processRequest(0, res, req.session.id);
                 if (allowRead.permission){
-                    files = getFiles(path.join(__dirname, "files"))
-                    folders = getDirectories(path.join(__dirname, "files"))
+                    let _files = getFiles(path.join(__dirname, "files"))
+                    let _folders = getDirectories(path.join(__dirname, "files"))
+                    const action = "read"
+                    for (let i = 0; i < _files.length; i++){
+                        const whitelisted = await checkFilePrivilege(usernames[0].user_group, _files[i], action);
+                        if (whitelisted){
+                            files.push(_files[i])
+                        }
+                    }
+                    for (let i = 0; i < _folders.length; i++){
+                        const whitelisted = await checkFilePrivilege(usernames[0].user_group, _folders[i], action);
+                        if (whitelisted){
+                            folders.push(_folders[i])
+                        }
+                    }
                 }
                 let params = {
                     username: username,
@@ -247,8 +284,21 @@ app.get('/path/:path(*)', async (req, res)=>{
     const allowRead = await processRequest(0, res, req.session.id);
     if (allowRead.permission){
         try{
-            files = getFiles(path.join(__dirname, "files", req.params.path))
-            folders = getDirectories(path.join(__dirname, "files", req.params.path))
+            let _files = getFiles(path.join(__dirname, "files", req.params.path))
+            let _folders = getDirectories(path.join(__dirname, "files", req.params.path))
+            const action = "read"
+            for (let i = 0; i < _files.length; i++){
+                const whitelisted = await checkFilePrivilege(userInfo[0].user_group, path.join(req.params.path, _files[i]), action);
+                if (whitelisted){
+                    files.push(_files[i])
+                }
+            }
+            for (let i = 0; i < _folders.length; i++){
+                const whitelisted = await checkFilePrivilege(userInfo[0].user_group, path.join(req.params.path, _folders[i]), action);
+                if (whitelisted){
+                    folders.push(_folders[i])
+                }
+            }
         }catch(error){
             res.redirect("/")
             return
@@ -316,7 +366,7 @@ app.post("/fileUpload", async (req, res)=>{
 
 // Delete folder
 app.post("/delFolder", async (req, res)=>{
-    const allow = await processRequest(3, res, req.session.id);
+    const allow = await processRequest(3, res, req.session.id, path);
     if (allow.permission == false){
         res.send({
             alert: 'You are not allowed to delete folders',
@@ -387,7 +437,7 @@ app.post("/newFolder", async (req, res)=>{
 
 // Modify a file
 app.get("/modify/:path(*)", async (req, res)=>{
-    const allow = await processRequest(1, res, req.session.id);
+    const allow = await processRequest(1, res, req.session.id, req.params.path);
     if (allow.permission == false){
         res.redirect("/")
         return
@@ -417,7 +467,7 @@ app.get("/modify/:path(*)", async (req, res)=>{
 
 // Receive file changes
 app.post("/modify", async (req, res)=>{
-    const allow = await processRequest(1, res, req.session.id);
+    const allow = await processRequest(1, res, req.session.id, req.body.path);
     if (allow == false){
         res.redirect("/")
     }
@@ -433,7 +483,7 @@ app.post("/modify", async (req, res)=>{
 
 // Erase a file
 app.get("/erase/:path(*)", async (req, res)=>{
-    const allow = await processRequest(3, res, req.session.id)
+    const allow = await processRequest(3, res, req.session.id, req.params.path);
     if (allow.permission == false){
         res.redirect("/")
         return
@@ -562,13 +612,15 @@ app.get('/admin', async (req, res)=>{
         const user_groups = await getData("SELECT * FROM user_groups");
         const fileLog = await getData("SELECT * FROM fileLog ORDER BY time DESC");
         const loginLog = await getData("SELECT * FROM loginLog ORDER BY time DESC");
+        const file_privileges = await getData("SELECT * FROM file_privilege");
         res.render("admin", {
             username: username,
             admin: admin,
             users: users,
             user_groups: user_groups,
             fileLog: fileLog,
-            loginLog: loginLog
+            loginLog: loginLog,
+            file_privilege: file_privileges
         })
     }else{
         res.redirect('/')
@@ -577,7 +629,7 @@ app.get('/admin', async (req, res)=>{
 
 // Return raw file 
 app.get('/raw/:fileName(*)', async (req, res)=>{
-    const give = await processRequest(0, res, req.session.id);
+    const give = await processRequest(0, res, req.session.id, req.params.fileName);
     if (give.permission == false){
         return
     }
@@ -594,8 +646,16 @@ app.get('/raw/:fileName(*)', async (req, res)=>{
 
 // Get requests for a file 
 app.get('/file/:fileName(*)', async (req, res)=>{
-    const give = await processRequest(0, res, req.session.id);
-    if (give.permission == false) return
+    if (req.session.id == undefined){
+        res.redirect('/login')
+    }
+    const give = await processRequest(0, res, req.session.id, req.params.fileName);
+    if (give.permission == false){
+        res.send({
+            content: 'You are not allowed to read this file'
+        })
+        return
+    } 
     let returnDict = {}
     try{
         let content = fs.readFileSync(path.join(__dirname, 'files', req.params.fileName));
@@ -859,6 +919,77 @@ app.get('/editUserInfo', async (req, res)=>{
     }
 })
 
+// Add file privilege
+app.post('/addPrivilege', async(req, res)=>{
+    if (!req.body.path){
+        res.send({
+            alert: "A path must be given",
+            alertType: 2
+        })
+        return
+    }
+    if (!req.body.userGroup || isNaN(+req.body.userGroup)){
+        res.send({
+            alert: "A user group must be given",
+            alertType: 2
+        })
+        return
+    }
+    try {
+        await getData("INSERT INTO file_privilege (groupID, file, read, write, deleteP) VALUES (?, ?, ?, ?, ?)", [req.body.userGroup, req.body.path, +(req.body.read == 'true'), +(req.body.write == 'true'), +(req.body.delete == 'true')])
+        res.send({
+            alert: "Added Succesfully",
+            alertType: 4
+        })
+        return
+    }catch(error){
+        res.send({
+            alert:"There was an error creating the privilege",
+            alertType: 2
+        })
+        return
+    }
+})
+
+// Delete file privilege
+app.get('/deleteFilePrivilege', async (req, res)=>{
+    const id = req.query.id;
+    if (!id){
+        res.send({
+            alert: "you need to give an ID",
+            alertType: 2
+        })
+        return
+    }
+    if (req.session.id == undefined){
+        res.redirect("/login")
+        return
+    }
+    const userinfo = await getUserInfo(req.session.id);
+    if (userinfo[0].user_group != 0){
+        res.send({
+            alert: "You need to be an admin to delete a privilege",
+            alertType: 2
+        })
+        return
+    }
+    try {
+        await getData("DELETE FROM file_privilege WHERE id = ?", [id])
+        res.send({
+            alert: "Succesfully deleted",
+            alertType: 4
+        })
+        return
+    }catch(error){
+        console.log(error)
+        res.send({
+            alert: "there was an error deleting",
+            alertType: 2
+        })
+        return
+    }
+})
+
 // Delete user group
 app.get('/deleteUserGroup', async (req, res)=>{
     const groupID = req.query.id;
@@ -986,6 +1117,7 @@ app.get('/editUserGroup', async (req, res)=>{
 
 // Login post and get requests
 app.get('/login', (req, res)=>{
+    if (req.session.id != undefined){res.redirect('/')}
     res.render('login');
 })
 

@@ -48,3 +48,13 @@
     border: 1px solid red !important;
     color: white !important;
 }
+
+@media only screen and (max-width: 700px){
+    #settings div:not(.bottombutt){
+        flex-direction: column;
+    }
+
+    #settings {
+        width: 90%;
+    }
+}

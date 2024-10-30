@@ -186,7 +186,97 @@
                     </tbody>
                 </table>
             </details>
+            <details>
+                <summary>
+                    <h2>File Privileges</h2>
+                </summary>
+                <table>
+                    <thead>
+                        <tr>
+                            <td>File Path</td>
+                            <td>User Group</td>
+                            <td>Read</td>
+                            <td>Write</td>
+                            <td>Delete</td>
+                            <td>Delete Privilege</td>
+                        </tr>
+                    </thead>
+                    <tbody id='privileges'>
+                        <% for (let i = 0; i < file_privilege.length; i++){ %>
+                            <tr>
+                                <td><%= file_privilege[i].file %></td>
+                                <td><%= file_privilege[i].groupID == 0 ? 'admin' : file_privilege[i].groupID == 1 ? 'default' : file_privilege[i].groupID %></td>
+                                <td><%= file_privilege[i].read %></td>
+                                <td><%= file_privilege[i].write %></td>
+                                <td><%= file_privilege[i].deleteP %></td>
+                                <td><button class="delete" onclick="removePrivilege(<%= file_privilege[i].id %>)">Remove Privilege</button></td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+                <button onclick="addFilePrivilege()">Add File Privilege</button>
+            </details>
             <script defer>
+                function addFilePrivilege(){
+                    createInfoAlert("The id of admin and default is 0 and 1 respectively")
+                    if (document.getElementById("adding")) return
+                    const parent = document.getElementById("privileges");
+                    var newRow = document.createElement("tr")
+                    newRow.id = "adding"
+                    newRow.innerHTML = '<td><input type="text" placeholder="file path"></td><td><input type="number" placeholder="group"></td>'
+                    for (let i = 0; i < 3; i++){
+                        newRow.innerHTML = newRow.innerHTML + '<td><input type="checkbox"></td>'
+                    }
+                    newRow.innerHTML = newRow.innerHTML + "<td><button class='apply'>Apply</button></td>"
+                    newRow.children[newRow.children.length-1].children[0].onclick = ()=>{
+                        let formData = new FormData()
+                        formData.append("path", newRow.children[0].children[0].value);
+                        formData.append("userGroup", newRow.children[1].children[0].value);
+                        formData.append("read", newRow.children[2].children[0].checked);
+                        formData.append("write", newRow.children[3].children[0].checked);
+                        formData.append("delete", newRow.children[4].children[0].checked);
+                        var req = fetch('/addPrivilege', {
+                            method: 'POST',
+                            body: formData
+                        }).then(function(response){
+                            return response.json()
+                        }).then(function(data){
+                            if (data.alertType == 2){
+                                createErrorAlert(data.alert)
+                                return
+                            }
+                            createSuccessAlert(data.alert)
+                            setTimeout(()=>{
+                                window.location.reload()
+                            }, 1000)
+                        })   
+                    }
+                    let removeButton = document.createElement("button")
+                    removeButton.innerText = "Cancel"
+                    removeButton.onclick = ()=>{
+                        parent.parentElement.parentElement.removeChild(removeButton)
+                        parent.removeChild(newRow)
+                    }
+                    parent.appendChild(newRow)
+                    parent.parentElement.parentElement.appendChild(removeButton)
+                }
+
+                function removePrivilege(id){
+                    const url = `/deleteFilePrivilege?id=${id}`
+                    let req = new XMLHttpRequest();
+                    req.open('GET', url);
+                    req.send();
+                    req.onload = function(){
+                        let res = JSON.parse(req.responseText)
+                        if (res.alertType == 2){
+                            createErrorAlert(res.alert);
+                        }else{
+                            createSuccessAlert(res.alert);
+                            setTimeout(()=>{window.location.reload()}, 1000)
+                        }
+                    }
+                }
+
                 function applyChangesGroup(groupID){
                     const entries = document.getElementById("group"+groupID).getElementsByTagName("td")
                     const read = entries[1].children[0].checked;

@@ -74,3 +74,14 @@
     right: 15px;
     border: 1px solid red;
 }
+
+@media only screen and (max-width: 700px){
+    #inputContainer{
+        width: 90% !important;
+        font-size: 3dvw;
+    }
+
+    #inputContainer input {
+        font-size: 5dvw !important;
+    }
+}

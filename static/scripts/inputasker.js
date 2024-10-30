@@ -17,7 +17,9 @@ function askInput(queryTitle, queries = [], callback = console.log){
     for (let i = 0; i < queries.length; i++){
         let input = document.createElement("input")
         input.type = queries[i].toLowerCase().includes("password") ? "password" : "text";
-        input.type = queries[i].toLowerCase().includes("file") ? "file" : "text";
+        if (input.type == "text"){
+            input.type = queries[i].toLowerCase().includes("file") ? "file" : "text";
+        }
         input.placeholder = queries[i];
         container.appendChild(input);
     }

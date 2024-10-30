@@ -42,3 +42,19 @@
         top: 5px;
     }
 }
+
+@keyframes moveIn {
+    from {
+        right: -100%;
+    }
+    to {
+        right: 15px;
+    }
+}
+
+@media only screen and (max-width: 700px){
+    .alert {
+        bottom: 15px;
+        animation-name: moveIn;
+    }
+}
