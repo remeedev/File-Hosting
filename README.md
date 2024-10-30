@@ -1,5 +1,7 @@
 # File Hoster
 
+[![donate button](https://i.imgur.com/8WT0qBO.png)](https://paypal.me/peinorsm)
+
 ## Usage Instructions
 1. Install all of the files in this repo alongside it's dependencies with
 ```
